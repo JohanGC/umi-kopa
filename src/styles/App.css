@@ -1,0 +1,78 @@
+/* Estilos personalizados para OfertasApp */
+.min-vh-100 {
+  min-height: 100vh;
+}
+
+.card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.btn-primary {
+  background: linear-gradient(to right, #4361ee, #3a0ca3);
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, #3a0ca3, #7209b7);
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: linear-gradient(to right, #4cc9f0, #4895ef);
+  border: none;
+}
+
+.progress {
+  background-color: #e9ecef;
+  border-radius: 10px;
+}
+
+.progress-bar {
+  background: linear-gradient(to right, #4cc9f0, #4895ef);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+.badge {
+  font-weight: 500;
+}
+
+.alert {
+  border: none;
+  border-radius: 10px;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.5s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .display-4 {
+    font-size: 2.5rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+}
