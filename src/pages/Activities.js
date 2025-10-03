@@ -3,6 +3,8 @@ import { dataService } from '../services/dataService';
 import { authService } from '../services/auth';
 import SearchFilter from '../components/SearchFilter';
 import FavoriteButton from '../components/FavoriteButton';
+import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
 
 const Activities = () => {
   const [activities, setActivities] = useState([]);
@@ -11,6 +13,8 @@ const Activities = () => {
   const [userParticipations, setUserParticipations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const { addToCart } = useCart();
+  const { addNotification } = useNotification();
 
   const categories = [
     { value: 'taller', label: 'Taller' },
@@ -56,6 +60,11 @@ const Activities = () => {
 
   const handleSearch = (term) => {
     setSearchTerm(term);
+  };
+
+  const handleAddToCart = (item, type) => {
+    addToCart(item, type);
+    addNotification(`"${item.title}" agregado al carrito`, 'success');
   };
 
   const handleFilter = (category) => {
@@ -174,6 +183,12 @@ const Activities = () => {
                       🔒 Inicia sesión para participar
                     </button>
                   )}
+                  <button 
+                    className="btn btn-outline-success mt-2"
+                    onClick={() => handleAddToCart(activity, 'activity')}
+                  >
+                    🛒 Agregar al Carrito
+                  </button>
                 </div>
               </div>
             </div>

@@ -7,15 +7,30 @@ const Profile = ({ user }) => {
   const [activities, setActivities] = useState([]);
 
   useEffect(() => {
-    const participations = dataService.getUserParticipations(user.email);
-    setUserParticipations(participations);
+    // Verifica que user y user.email existan antes de usarlos
+    if (user && user.email) {
+      const participations = dataService.getUserParticipations(user.email);
+      setUserParticipations(participations);
+    }
     
     const allOffers = dataService.getOffers();
     const allActivities = dataService.getActivities();
     
     setOffers(allOffers);
     setActivities(allActivities);
-  }, [user.email]);
+  }, [user?.email]); // Protege la dependencia también
+
+  // Agrega validación para user
+  if (!user) {
+    return (
+      <div className="container mt-5">
+        <div className="alert alert-warning text-center">
+          <h4>Usuario no encontrado</h4>
+          <p>No se pudieron cargar los datos del perfil.</p>
+        </div>
+      </div>
+    );
+  }
 
   const getUserOffers = () => {
     return offers.filter(offer => userParticipations.offers.includes(offer.id));
@@ -30,6 +45,11 @@ const Profile = ({ user }) => {
     return new Date(dateString).toLocaleDateString('es-ES', options);
   };
 
+  // ✅ CORREGIDO - Protege el acceso a user.nombre
+  const firstLetter = user?.nombre?.charAt(0) || 'U';
+  const userName = user?.nombre || 'Usuario';
+  const userEmail = user?.email || 'No especificado';
+
   return (
     <div className="container mt-5">
       <div className="row">
@@ -40,16 +60,16 @@ const Profile = ({ user }) => {
               <div className="text-center mb-4">
                 <div className="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" 
                      style={{width: '80px', height: '80px', fontSize: '2rem'}}>
-                  {user.nombre.charAt(0)}
+                  {firstLetter} {/* ✅ Usa la variable protegida */}
                 </div>
               </div>
               <div className="mb-3">
                 <label className="form-label fw-bold">Nombre:</label>
-                <p className="fs-5">{user.nombre}</p>
+                <p className="fs-5">{userName}</p> {/* ✅ Usa la variable protegida */}
               </div>
               <div className="mb-3">
                 <label className="form-label fw-bold">Email:</label>
-                <p className="fs-5">{user.email}</p>
+                <p className="fs-5">{userEmail}</p> {/* ✅ Usa la variable protegida */}
               </div>
               <div className="d-grid gap-2">
                 <button className="btn btn-primary">Editar Perfil</button>

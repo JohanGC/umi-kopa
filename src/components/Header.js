@@ -1,15 +1,17 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
 
 const Header = ({ currentUser, onLogout }) => {
   const navigate = useNavigate();
+  const { getTotalItems } = useCart();
 
   const handleLoginClick = () => {
     navigate('/login');
   };
 
   return (
-    <header className="bg-primary text-white p-3">
+    <header className="bg-dark text-white p-3 cont-one">
       <div className="container">
         <nav className="d-flex justify-content-between align-items-center">
           <Link to="/" className="text-white text-decoration-none">
@@ -21,6 +23,19 @@ const Header = ({ currentUser, onLogout }) => {
             <Link to="/offers" className="text-white mx-2 text-decoration-none">Ofertas</Link>
             <Link to="/activities" className="text-white mx-2 text-decoration-none">Actividades</Link>
             
+            {/* Icono del carrito */}
+            <button 
+              className="btn btn-outline-light position-relative mx-2"
+              onClick={() => navigate('/cart')}
+            >
+              🛍️ Carrito
+              {getTotalItems() > 0 && (
+                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                  {getTotalItems()}
+                </span>
+              )}
+            </button>
+
             {currentUser ? (
               <div className="dropdown ms-3">
                 <button className="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">

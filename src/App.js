@@ -12,8 +12,23 @@ import Favorites from './pages/Favorites'; // ← Agregar esta importación
 import { authService } from './services/auth';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './styles/App.css';
+import { NotificationProvider, useNotification } from './context/NotificationContext';
+import NotificationToast from './components/NotificationToast';
+import { CartProvider } from './context/CartContext';
+import Cart from './pages/Carts';
+
+function AppWrapper() {
+  return (
+    <NotificationProvider>
+      <CartProvider>
+        <App />
+      </CartProvider>
+    </NotificationProvider>
+  );
+}
 
 function App() {
+  const { addNotification } = useNotification();
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -74,6 +89,7 @@ function App() {
         
         <main className="flex-grow-1">
           <Routes>
+            <Route path="/cart" element={<Cart />} />
             <Route path="/" element={<Home />} />
             <Route path="/offers" element={<Offers />} />
             <Route path="/activities" element={<Activities />} />
@@ -102,4 +118,4 @@ function App() {
   );
 }
 
-export default App;
+export default AppWrapper;

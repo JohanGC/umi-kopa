@@ -3,6 +3,12 @@ import { dataService } from '../services/dataService';
 import { authService } from '../services/auth';
 import SearchFilter from '../components/SearchFilter';
 import FavoriteButton from '../components/FavoriteButton';
+import { useCart } from '../context/CartContext';
+import { useNotification } from '../context/NotificationContext';
+
+
+// Función para agregar al carrito
+
 
 const Offers = () => {
   const [offers, setOffers] = useState([]);
@@ -11,7 +17,9 @@ const Offers = () => {
   const [userParticipations, setUserParticipations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-
+  const { addToCart } = useCart();
+  const { addNotification } = useNotification();
+  
   const categories = [
     { value: 'temporada', label: 'Temporada' },
     { value: 'nocturna', label: 'Nocturna' },
@@ -56,6 +64,11 @@ const Offers = () => {
 
   const handleSearch = (term) => {
     setSearchTerm(term);
+  };
+
+  const handleAddToCart = (item, type) => {
+    addToCart(item, type);
+    addNotification(`"${item.title}" agregado al carrito`, 'success');
   };
 
   const handleFilter = (category) => {
@@ -157,6 +170,7 @@ const Offers = () => {
 
                   {currentUser ? (
                     isUserParticipating(offer.id) ? (
+                      
                       <button className="btn btn-success" disabled>
                         ✅ Ya estás participando
                       </button>
@@ -174,6 +188,12 @@ const Offers = () => {
                       🔒 Inicia sesión para participar
                     </button>
                   )}
+                  <button 
+                    className="btn btn-outline-success mt-2"
+                    onClick={() => handleAddToCart(offer, 'offer')}
+                  >
+                    🛒 Agregar al Carrito
+                  </button>
                 </div>
               </div>
             </div>

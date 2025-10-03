@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "OfertasApp",
+  "name": "OfertasApp - Descubre y Participa",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,7 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#4361ee",
+  "background_color": "#ffffff",
+  "description": "La mejor plataforma para descubrir ofertas y actividades exclusivas"
 }

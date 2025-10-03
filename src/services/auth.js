@@ -1,57 +1,59 @@
-// Simulación de servicio de autenticación
+import { authAPI, offersAPI, activitiesAPI, favoritesAPI } from './api';
+
 export const authService = {
-  // Obtener usuario actual desde localStorage
+  // Login con API real
+  login: async (email, password) => {
+    const response = await authAPI.login(email, password);
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
+    return response.user;
+  },
+
+  // Registro con API real
+  register: async (nombre, email, password) => {
+    const response = await authAPI.register(nombre, email, password);
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('user', JSON.stringify(response.user));
+    return response.user;
+  },
+
+  // Obtener usuario actual
   getCurrentUser: () => {
-    const userData = localStorage.getItem('ofertasApp_user');
+    const userData = localStorage.getItem('user');
     return userData ? JSON.parse(userData) : null;
-  },
-
-  // Iniciar sesión
-  login: (email, password) => {
-    return new Promise((resolve, reject) => {
-      // Simular delay de red
-      setTimeout(() => {
-        const users = JSON.parse(localStorage.getItem('ofertasApp_users') || '[]');
-        const user = users.find(u => u.email === email && u.password === password);
-        
-        if (user) {
-          const userData = { email: user.email, nombre: user.nombre };
-          localStorage.setItem('ofertasApp_user', JSON.stringify(userData));
-          resolve(userData);
-        } else {
-          reject(new Error('Credenciales incorrectas'));
-        }
-      }, 1000);
-    });
-  },
-
-  // Registrar nuevo usuario
-  register: (nombre, email, password) => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const users = JSON.parse(localStorage.getItem('ofertasApp_users') || '[]');
-        
-        // Verificar si el email ya existe
-        if (users.some(u => u.email === email)) {
-          reject(new Error('Este email ya está registrado'));
-          return;
-        }
-        
-        // Agregar nuevo usuario
-        const newUser = { nombre, email, password };
-        users.push(newUser);
-        localStorage.setItem('ofertasApp_users', JSON.stringify(users));
-        
-        // Autologin
-        const userData = { email, nombre };
-        localStorage.setItem('ofertasApp_user', JSON.stringify(userData));
-        resolve(userData);
-      }, 1000);
-    });
   },
 
   // Cerrar sesión
   logout: () => {
-    localStorage.removeItem('ofertasApp_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+  },
+
+  // Verificar token (opcional)
+  verifyToken: async () => {
+    try {
+      const user = await authAPI.getProfile();
+      return user;
+    } catch (error) {
+      authService.logout();
+      return null;
+    }
   }
+};
+
+// Actualizar dataService para usar APIs reales
+export const dataService = {
+  getOffers: () => offersAPI.getAll(),
+  getActivities: () => activitiesAPI.getAll(),
+  participateInOffer: (offerId) => offersAPI.participate(offerId),
+  participateInActivity: (activityId) => activitiesAPI.participate(activityId),
+  
+  // Favoritos con API real
+  addToFavorites: (itemId, itemType) => 
+    favoritesAPI.addFavorite(itemId, itemType),
+  
+  removeFromFavorites: (itemId, itemType) => 
+    favoritesAPI.removeFavorite(itemId, itemType),
+  
+  getUserFavorites: () => favoritesAPI.getFavorites()
 };
