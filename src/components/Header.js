@@ -11,11 +11,11 @@ const Header = ({ currentUser, onLogout }) => {
   };
 
   return (
-    <header className="bg-dark text-white p-3 cont-one">
+    <header className="fondo-header p-3 cont-one">
       <div className="container">
         <nav className="d-flex justify-content-between align-items-center">
-          <Link to="/" className="text-white text-decoration-none">
-            <h1 className="h4 m-0">🛒 OfertasApp</h1>
+          <Link to="/">
+            <img className="logo" src='logoKopa_W.svg'></img>
           </Link>
           
           <div className="d-flex align-items-center">
@@ -25,7 +25,7 @@ const Header = ({ currentUser, onLogout }) => {
             
             {/* Icono del carrito */}
             <button 
-              className="btn btn-outline-light position-relative mx-2"
+              className="btn btn-header position-relative ms-3"
               onClick={() => navigate('/cart')}
             >
               🛍️ Carrito
@@ -46,10 +46,17 @@ const Header = ({ currentUser, onLogout }) => {
                   <li><Link to="/favorites" className="dropdown-item">⭐ Mis Favoritos</Link></li>
                   <li><hr className="dropdown-divider"/></li>
                   <li><button className="dropdown-item" onClick={onLogout}>Cerrar Sesión</button></li>
+                  {currentUser && (currentUser.rol === 'oferente' || currentUser.rol === 'administrador') && (
+                    <>
+                      <li><Link to="/my-offers" className="dropdown-item">🏷️ Mis Ofertas</Link></li>
+                      <li><Link to="/my-activities" className="dropdown-item">🎯 Mis Actividades</Link></li>
+                      <li><hr className="dropdown-divider"/></li>
+                    </>
+                  )}
                 </ul>
               </div>
             ) : (
-              <button className="btn btn-outline-light ms-3" onClick={handleLoginClick}>
+              <button className="btn btn-header ms-3" onClick={handleLoginClick}>
                 Iniciar Sesión
               </button>
             )}

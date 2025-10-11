@@ -12,3 +12,25 @@ code {
     monospace;
 }
 
+.App {
+  background-color: white;
+}
+
+.fondo-header {
+  background-color: black !important;
+}
+
+.logo {
+  width: 300px;
+  height: auto;
+}
+
+.btn-header {
+  color: white !important;
+}
+
+
+
+.footer-bkg {
+  background-color: black;
+}

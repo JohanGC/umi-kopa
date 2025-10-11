@@ -1,6 +1,6 @@
-//const API_BASE_URL = 'http://localhost:5000/api';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-// Función genérica para hacer requests
+
+// Función genérica para hacer requests - CORREGIDA
 const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
   
@@ -13,7 +13,14 @@ const apiRequest = async (endpoint, options = {}) => {
     ...options,
   };
 
+  // ✅ CORREGIDO: Si hay body, convertirlo a JSON
+  if (config.body && typeof config.body !== 'string') {
+    config.body = JSON.stringify(config.body);
+  }
+
   try {
+    console.log(`🔄 Enviando request a: ${API_BASE_URL}${endpoint}`, config);
+    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     const data = await response.json();
     
@@ -23,22 +30,23 @@ const apiRequest = async (endpoint, options = {}) => {
     
     return data;
   } catch (error) {
+    console.error('❌ Error en apiRequest:', error);
     throw error;
   }
 };
 
-// Servicios específicos
+// Servicios específicos - CORREGIDOS
 export const authAPI = {
   login: (email, password) => 
     apiRequest('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password })
+      body: { email, password } // ✅ Solo el objeto, apiRequest lo convierte
     }),
 
-  register: (nombre, email, password) =>
+  register: (userData) => // ✅ Cambiado para recibir objeto completo
     apiRequest('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ nombre, email, password })
+      body: userData
     }),
 
   getProfile: () => apiRequest('/auth/profile')
@@ -63,11 +71,11 @@ export const favoritesAPI = {
   addFavorite: (itemId, itemType) =>
     apiRequest('/favorites', {
       method: 'POST',
-      body: JSON.stringify({ itemId, itemType })
+      body: { itemId, itemType }
     }),
   removeFavorite: (itemId, itemType) =>
     apiRequest('/favorites', {
       method: 'DELETE',
-      body: JSON.stringify({ itemId, itemType })
+      body: { itemId, itemType }
     })
 };
