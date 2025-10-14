@@ -35,6 +35,28 @@ const apiRequest = async (endpoint, options = {}) => {
   }
 };
 
+// Agregar estas funciones al adminAPI:
+
+export const adminAPI = {
+  getStats: () => apiRequest('/admin/stats'),
+  getUsers: () => apiRequest('/admin/users'),
+  getOffers: () => apiRequest('/admin/offers'),
+  getActivities: () => apiRequest('/admin/activities'),
+  getPendingOffers: () => apiRequest('/admin/offers/pending'),
+  getPendingActivities: () => apiRequest('/admin/activities/pending'),
+  
+  updateUser: (id, userData) =>
+    apiRequest(`/admin/users/${id}`, {
+      method: 'PATCH',
+      body: userData
+    }),
+  
+  deleteUser: (id) =>
+    apiRequest(`/admin/users/${id}`, {
+      method: 'DELETE'
+    })
+};
+
 // Servicios específicos - CORREGIDOS
 export const authAPI = {
   login: (email, password) => 

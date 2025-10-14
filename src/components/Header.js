@@ -39,13 +39,23 @@ const Header = ({ currentUser, onLogout }) => {
             {currentUser ? (
               <div className="dropdown ms-3">
                 <button className="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                  👤 {currentUser.nombre}
+                  {currentUser.rol === 'administrador' ? '👑 ' : '👤 '}
+                  {currentUser.nombre}
                 </button>
                 <ul className="dropdown-menu">
-                  <li><Link to="/profile" className="dropdown-item">Mi Perfil</Link></li>
-                  <li><Link to="/favorites" className="dropdown-item">⭐ Mis Favoritos</Link></li>
-                  <li><hr className="dropdown-divider"/></li>
-                  <li><button className="dropdown-item" onClick={onLogout}>Cerrar Sesión</button></li>
+                  {/* ENLACE AL PANEL DE ADMINISTRACIÓN - SOLO PARA ADMINS */}
+                  {currentUser.rol === 'administrador' && (
+                    <>
+                      <li>
+                        <Link to="/admin" className="dropdown-item text-danger">
+                          👑 Panel de Administración
+                        </Link>
+                      </li>
+                      <li><hr className="dropdown-divider"/></li>
+                    </>
+                  )}
+                  <li><Link to="/profile" className="dropdown-item">📊 Mi Perfil</Link></li>
+                  
                   {currentUser && (currentUser.rol === 'oferente' || currentUser.rol === 'administrador') && (
                     <>
                       <li><Link to="/my-offers" className="dropdown-item">🏷️ Mis Ofertas</Link></li>
@@ -53,11 +63,19 @@ const Header = ({ currentUser, onLogout }) => {
                       <li><hr className="dropdown-divider"/></li>
                     </>
                   )}
+                  
+                  <li><Link to="/favorites" className="dropdown-item">⭐ Mis Favoritos</Link></li>
+                  <li><hr className="dropdown-divider"/></li>
+                  <li>
+                    <button className="dropdown-item text-danger" onClick={onLogout}>
+                      🚪 Cerrar Sesión
+                    </button>
+                  </li>
                 </ul>
               </div>
             ) : (
-              <button className="btn btn-header ms-3" onClick={handleLoginClick}>
-                Iniciar Sesión
+              <button className="btn btn-outline-light ms-3" onClick={handleLoginClick}>
+                🔑 Iniciar Sesión
               </button>
             )}
           </div>

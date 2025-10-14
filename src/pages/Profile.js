@@ -1,36 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { dataService } from '../services/dataService';
+import { useNotification } from '../context/NotificationContext';
+import ChangePasswordForm from '../components/ChangePasswordForm';
 
 const Profile = ({ user }) => {
   const [userParticipations, setUserParticipations] = useState({ offers: [], activities: [] });
   const [offers, setOffers] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const { addNotification } = useNotification();
 
   useEffect(() => {
-    // Verifica que user y user.email existan antes de usarlos
-    if (user && user.email) {
-      const participations = dataService.getUserParticipations(user.email);
-      setUserParticipations(participations);
-    }
-    
-    const allOffers = dataService.getOffers();
-    const allActivities = dataService.getActivities();
-    
-    setOffers(allOffers);
-    setActivities(allActivities);
-  }, [user?.email]); // Protege la dependencia también
+    // Cargar datos del usuario
+    loadUserData();
+  }, [user.email]);
 
-  // Agrega validación para user
-  if (!user) {
-    return (
-      <div className="container mt-5">
-        <div className="alert alert-warning text-center">
-          <h4>Usuario no encontrado</h4>
-          <p>No se pudieron cargar los datos del perfil.</p>
-        </div>
-      </div>
-    );
-  }
+  const loadUserData = async () => {
+    try {
+      // En una implementación real, esto vendría de APIs
+      const participations = { offers: [], activities: [] }; // dataService.getUserParticipations(user.email);
+      setUserParticipations(participations);
+      
+      const allOffers = await dataService.getOffers();
+      const allActivities = await dataService.getActivities();
+      
+      setOffers(allOffers);
+      setActivities(allActivities);
+    } catch (error) {
+      addNotification('Error cargando datos del perfil', 'error');
+    }
+  };
 
   const getUserOffers = () => {
     return offers.filter(offer => userParticipations.offers.includes(offer.id));
@@ -45,10 +44,9 @@ const Profile = ({ user }) => {
     return new Date(dateString).toLocaleDateString('es-ES', options);
   };
 
-  // ✅ CORREGIDO - Protege el acceso a user.nombre
-  const firstLetter = user?.nombre?.charAt(0) || 'U';
-  const userName = user?.nombre || 'Usuario';
-  const userEmail = user?.email || 'No especificado';
+  const handleEditProfile = () => {
+    addNotification('Funcionalidad de edición de perfil en desarrollo', 'info');
+  };
 
   return (
     <div className="container mt-5">
@@ -57,23 +55,71 @@ const Profile = ({ user }) => {
           <div className="card shadow">
             <div className="card-body p-4">
               <h2 className="card-title text-center mb-4">Mi Perfil</h2>
+              
               <div className="text-center mb-4">
                 <div className="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" 
                      style={{width: '80px', height: '80px', fontSize: '2rem'}}>
-                  {firstLetter} {/* ✅ Usa la variable protegida */}
+                  {user.nombre.charAt(0).toUpperCase()}
                 </div>
               </div>
+              
               <div className="mb-3">
                 <label className="form-label fw-bold">Nombre:</label>
-                <p className="fs-5">{userName}</p> {/* ✅ Usa la variable protegida */}
+                <p className="fs-5">{user.nombre}</p>
               </div>
+              
               <div className="mb-3">
                 <label className="form-label fw-bold">Email:</label>
-                <p className="fs-5">{userEmail}</p> {/* ✅ Usa la variable protegida */}
+                <p className="fs-5">{user.email}</p>
               </div>
+              
+              <div className="mb-3">
+                <label className="form-label fw-bold">Rol:</label>
+                <p>
+                  <span className={`badge ${
+                    user.rol === 'administrador' ? 'bg-danger' :
+                    user.rol === 'oferente' ? 'bg-warning' : 'bg-info'
+                  }`}>
+                    {user.rol === 'administrador' ? '👑 Administrador' :
+                     user.rol === 'oferente' ? '🏢 Oferente' : '👤 Usuario'}
+                  </span>
+                </p>
+              </div>
+
+              {user.empresa && (
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Empresa:</label>
+                  <p className="fs-5">{user.empresa}</p>
+                </div>
+              )}
+
+              {user.telefono && (
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Teléfono:</label>
+                  <p className="fs-5">{user.telefono}</p>
+                </div>
+              )}
+
+              {user.direccion && (
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Dirección:</label>
+                  <p className="fs-5">{user.direccion}</p>
+                </div>
+              )}
+
               <div className="d-grid gap-2">
-                <button className="btn btn-primary">Editar Perfil</button>
-                <button className="btn btn-outline-secondary">Cambiar Contraseña</button>
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleEditProfile}
+                >
+                  ✏️ Editar Perfil
+                </button>
+                <button 
+                  className="btn btn-warning"
+                  onClick={() => setShowChangePassword(true)}
+                >
+                  🔐 Cambiar Contraseña
+                </button>
               </div>
             </div>
           </div>
@@ -131,6 +177,17 @@ const Profile = ({ user }) => {
           </div>
         </div>
       </div>
+
+      {/* Modal de cambio de contraseña */}
+      {showChangePassword && (
+        <ChangePasswordForm
+          onClose={() => setShowChangePassword(false)}
+          onSuccess={() => {
+            addNotification('Contraseña cambiada exitosamente', 'success');
+            setShowChangePassword(false);
+          }}
+        />
+      )}
     </div>
   );
 };

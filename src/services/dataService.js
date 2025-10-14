@@ -45,6 +45,7 @@ export const dataService = {
     }
     return offers;
   },
+  
 
   // Obtener todas las actividades
   getActivities: () => {

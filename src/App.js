@@ -16,6 +16,7 @@ import { NotificationProvider, useNotification } from './context/NotificationCon
 import NotificationToast from './components/NotificationToast';
 import { CartProvider } from './context/CartContext';
 import Cart from './pages/Carts';
+import AdminPanel from './pages/AdminPanel';
 
 function AppWrapper() {
   return (
@@ -92,6 +93,10 @@ function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/" element={<Home />} />
             <Route path="/offers" element={<Offers />} />
+            <Route 
+              path="/admin" 
+              element={currentUser?.rol === 'administrador' ? <AdminPanel /> : <Navigate to="/" />} 
+            />
             <Route path="/activities" element={<Activities />} />
             <Route 
               path="/profile" 
