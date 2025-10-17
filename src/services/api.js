@@ -1,6 +1,6 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Función genérica para hacer requests - CORREGIDA
+// Función genérica para hacer requests
 const apiRequest = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
   
@@ -13,19 +13,22 @@ const apiRequest = async (endpoint, options = {}) => {
     ...options,
   };
 
-  // ✅ CORREGIDO: Si hay body, convertirlo a JSON
+  // ✅ Si hay body, convertirlo a JSON
   if (config.body && typeof config.body !== 'string') {
     config.body = JSON.stringify(config.body);
   }
 
   try {
-    console.log(`🔄 Enviando request a: ${API_BASE_URL}${endpoint}`, config);
+    console.log(`🔄 Enviando request a: ${API_BASE_URL}${endpoint}`);
     
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-    const data = await response.json();
+    
+    // ✅ Verificar si la respuesta es JSON válido
+    const text = await response.text();
+    const data = text ? JSON.parse(text) : {};
     
     if (!response.ok) {
-      throw new Error(data.message || 'Error en la solicitud');
+      throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
     }
     
     return data;
@@ -33,28 +36,6 @@ const apiRequest = async (endpoint, options = {}) => {
     console.error('❌ Error en apiRequest:', error);
     throw error;
   }
-};
-
-// Agregar estas funciones al adminAPI:
-
-export const adminAPI = {
-  getStats: () => apiRequest('/admin/stats'),
-  getUsers: () => apiRequest('/admin/users'),
-  getOffers: () => apiRequest('/admin/offers'),
-  getActivities: () => apiRequest('/admin/activities'),
-  getPendingOffers: () => apiRequest('/admin/offers/pending'),
-  getPendingActivities: () => apiRequest('/admin/activities/pending'),
-  
-  updateUser: (id, userData) =>
-    apiRequest(`/admin/users/${id}`, {
-      method: 'PATCH',
-      body: userData
-    }),
-  
-  deleteUser: (id) =>
-    apiRequest(`/admin/users/${id}`, {
-      method: 'DELETE'
-    })
 };
 
 // Servicios específicos - CORREGIDOS

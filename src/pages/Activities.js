@@ -13,6 +13,7 @@ const Activities = () => {
   const [userParticipations, setUserParticipations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const { addNotification } = useNotification();
 
@@ -24,17 +25,36 @@ const Activities = () => {
   ];
 
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    
-    if (user) {
-      const participations = dataService.getUserParticipations(user.email);
-      setUserParticipations(participations.activities);
-    }
-    
-    const allActivities = dataService.getActivities();
-    setActivities(allActivities);
-    setFilteredActivities(allActivities);
+    const initializeData = async () => {
+      try {
+        setLoading(true);
+        const user = authService.getCurrentUser();
+        setCurrentUser(user);
+        
+        if (user) {
+          const participations = dataService.getUserParticipations(user.email);
+          setUserParticipations(participations.activities);
+        }
+        
+        // ✅ CORREGIDO: Usar await para funciones async
+        const allActivities = await dataService.getActivities();
+        console.log('🎯 Actividades obtenidas:', allActivities);
+        
+        // ✅ Asegurar que sea array
+        const activitiesArray = Array.isArray(allActivities) ? allActivities : [];
+        
+        setActivities(activitiesArray);
+        setFilteredActivities(activitiesArray);
+      } catch (error) {
+        console.error('❌ Error cargando actividades:', error);
+        setActivities([]);
+        setFilteredActivities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
   }, []);
 
   useEffect(() => {
@@ -42,17 +62,22 @@ const Activities = () => {
   }, [searchTerm, categoryFilter, activities]);
 
   const filterActivities = () => {
-    let filtered = activities.filter(activity => activity.isActive);
+    let filtered = (activities || []).filter(activity => activity.isActive);
 
     if (searchTerm) {
       filtered = filtered.filter(activity =>
-        activity.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        activity.description.toLowerCase().includes(searchTerm.toLowerCase())
+        activity.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        activity.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        activity.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) || // Para compatibilidad
+        activity.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) // Para compatibilidad
       );
     }
 
     if (categoryFilter) {
-      filtered = filtered.filter(activity => activity.category === categoryFilter);
+      filtered = filtered.filter(activity => 
+        activity.category === categoryFilter || 
+        activity.categoria === categoryFilter // Para compatibilidad
+      );
     }
 
     setFilteredActivities(filtered);
@@ -64,29 +89,35 @@ const Activities = () => {
 
   const handleAddToCart = (item, type) => {
     addToCart(item, type);
-    addNotification(`"${item.title}" agregado al carrito`, 'success');
+    addNotification(`"${item.title || item.titulo}" agregado al carrito`, 'success');
   };
 
   const handleFilter = (category) => {
     setCategoryFilter(category);
   };
 
-  const handleParticipate = (activityId) => {
+  const handleParticipate = async (activityId) => {
     if (!currentUser) {
       alert('Debes iniciar sesión para participar en las actividades');
       return;
     }
 
-    const success = dataService.participateInActivity(activityId, currentUser.email);
-    if (success) {
-      alert('¡Te has registrado en esta actividad exitosamente!');
-      const updatedActivities = dataService.getActivities();
-      setActivities(updatedActivities);
-      
-      const participations = dataService.getUserParticipations(currentUser.email);
-      setUserParticipations(participations.activities);
-    } else {
-      alert('No se pudo registrar en la actividad. Puede que esté llena.');
+    try {
+      const success = await dataService.participateInActivity(activityId);
+      if (success) {
+        addNotification('¡Te has registrado en esta actividad exitosamente!', 'success');
+        // Actualizar la lista
+        const updatedActivities = await dataService.getActivities();
+        const activitiesArray = Array.isArray(updatedActivities) ? updatedActivities : [];
+        setActivities(activitiesArray);
+        
+        const participations = dataService.getUserParticipations(currentUser.email);
+        setUserParticipations(participations.activities);
+      } else {
+        addNotification('No se pudo registrar en la actividad. Puede que esté llena.', 'error');
+      }
+    } catch (error) {
+      addNotification('Error al participar en la actividad', 'error');
     }
   };
 
@@ -95,13 +126,31 @@ const Activities = () => {
   };
 
   const formatDate = (dateString) => {
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('es-ES', options);
+    if (!dateString) return 'Fecha no definida';
+    try {
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return new Date(dateString).toLocaleDateString('es-ES', options);
+    } catch (error) {
+      return 'Fecha inválida';
+    }
   };
 
   const getProgressPercentage = (participants, maxParticipants) => {
-    return (participants / maxParticipants) * 100;
+    return maxParticipants > 0 ? (participants / maxParticipants) * 100 : 0;
   };
+
+  if (loading) {
+    return (
+      <div className="container mt-5">
+        <div className="d-flex justify-content-center align-items-center" style={{height: '200px'}}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando actividades...</span>
+          </div>
+          <span className="ms-2">Cargando actividades...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5">
@@ -121,7 +170,7 @@ const Activities = () => {
 
       <div className="mb-3">
         <small className="text-muted">
-          Mostrando {filteredActivities.length} de {activities.filter(a => a.isActive).length} actividades
+          Mostrando {filteredActivities.length} de {(activities || []).filter(a => a.isActive).length} actividades
         </small>
       </div>
 
@@ -135,47 +184,64 @@ const Activities = () => {
           </div>
         ) : (
           filteredActivities.map(activity => (
-            <div key={activity.id} className="col-md-6 col-lg-4 mb-4">
+            <div key={activity.id || activity._id} className="col-md-6 col-lg-4 mb-4">
               <div className="card h-100">
                 <div className="card-body d-flex flex-column">
                   <div className="d-flex justify-content-between align-items-start mb-3">
                     <span className="display-4">{activity.image}</span>
-                    <FavoriteButton itemId={activity.id} type="activity" />
+                    <FavoriteButton itemId={activity.id || activity._id} type="activity" />
                   </div>
                   
-                  <h3 className="card-title">{activity.title}</h3>
-                  <p className="card-text flex-grow-1">{activity.description}</p>
+                  <h3 className="card-title">{activity.title || activity.titulo}</h3>
+                  <p className="card-text flex-grow-1">{activity.description || activity.descripcion}</p>
                   
                   <div className="mb-2">
-                    <span className="badge bg-success fs-6">{activity.discount} DESCUENTO</span>
-                    <span className="badge bg-info ms-2 fs-6">{formatDate(activity.date)}</span>
+                    <span className="badge bg-success fs-6">{activity.discount || activity.descuento} DESCUENTO</span>
+                    <span className="badge bg-info ms-2 fs-6">
+                      {formatDate(activity.date || activity.fecha)}
+                    </span>
                   </div>
                   
                   <div className="mb-3">
                     <div className="d-flex justify-content-between small text-muted">
-                      <span>Participantes: {activity.participants}/{activity.maxParticipants}</span>
-                      <span>{Math.round(getProgressPercentage(activity.participants, activity.maxParticipants))}%</span>
+                      <span>
+                        Participantes: {activity.participants || activity.participantes}/
+                        {activity.maxParticipants || activity.maxParticipantes}
+                      </span>
+                      <span>
+                        {Math.round(getProgressPercentage(
+                          activity.participants || activity.participantes, 
+                          activity.maxParticipants || activity.maxParticipantes
+                        ))}%
+                      </span>
                     </div>
                     <div className="progress" style={{height: '8px'}}>
                       <div 
                         className="progress-bar" 
-                        style={{width: `${getProgressPercentage(activity.participants, activity.maxParticipants)}%`}}
+                        style={{width: `${getProgressPercentage(
+                          activity.participants || activity.participantes, 
+                          activity.maxParticipants || activity.maxParticipantes
+                        )}%`}}
                       ></div>
                     </div>
                   </div>
 
                   {currentUser ? (
-                    isUserParticipating(activity.id) ? (
+                    isUserParticipating(activity.id || activity._id) ? (
                       <button className="btn btn-success" disabled>
                         ✅ Ya estás registrado
                       </button>
                     ) : (
                       <button 
                         className="btn btn-primary"
-                        onClick={() => handleParticipate(activity.id)}
-                        disabled={activity.participants >= activity.maxParticipants}
+                        onClick={() => handleParticipate(activity.id || activity._id)}
+                        disabled={(activity.participants || activity.participantes) >= 
+                                 (activity.maxParticipants || activity.maxParticipantes)}
                       >
-                        {activity.participants >= activity.maxParticipants ? '❌ Actividad llena' : '🎯 Registrarse'}
+                        {(activity.participants || activity.participantes) >= 
+                         (activity.maxParticipants || activity.maxParticipantes) 
+                          ? '❌ Actividad llena' 
+                          : '🎯 Registrarse'}
                       </button>
                     )
                   ) : (

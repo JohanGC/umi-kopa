@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth'; // ✅ Importar authService
+import { authService } from '../services/auth';
+import { useNotification } from '../context/NotificationContext';
 
 const RegisterForm = ({ onRegister, onSwitchToLogin }) => {
   const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ const RegisterForm = ({ onRegister, onSwitchToLogin }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -31,7 +33,6 @@ const RegisterForm = ({ onRegister, onSwitchToLogin }) => {
     }
   };
 
-  // ✅ handleSubmit CORREGIDO
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -82,17 +83,30 @@ const RegisterForm = ({ onRegister, onSwitchToLogin }) => {
       
       console.log('✅ Registro exitoso:', user);
       
+      // ✅ ELIMINADO: Ya no necesitamos guardar manualmente en localStorage
+      // porque el authService.register ya se encarga de guardar en MongoDB
+      // y el AdminPanel ahora obtiene usuarios desde la API
+      
       // Llamar callback si existe
       if (onRegister) {
-        onRegister(user);
+        onRegister(user); // ✅ Pasa el usuario completo retornado por el servicio
       }
       
-      // Redirigir o mostrar éxito
-      navigate('/dashboard');
+      // Mostrar notificación de éxito
+      addNotification(`¡Cuenta creada con éxito, ${user.nombre}!`, 'success');
+      
+      // Redirigir según el rol
+      if (user.rol === 'administrador') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
       
     } catch (error) {
       console.error('❌ Error en registro:', error);
-      setError(error.message || 'Error al registrar usuario. Intenta nuevamente.');
+      const errorMessage = error.message || 'Error al registrar usuario. Intenta nuevamente.';
+      setError(errorMessage);
+      addNotification(errorMessage, 'error');
     } finally {
       setLoading(false);
     }

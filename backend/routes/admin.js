@@ -1,3 +1,4 @@
+// routes/admin.js
 const express = require('express');
 const User = require('../models/User');
 const Offer = require('../models/Offer');
@@ -132,6 +133,141 @@ router.get('/activities/pending', async (req, res) => {
     res.json(activities);
   } catch (error) {
     res.status(500).json({ message: 'Error obteniendo actividades pendientes' });
+  }
+});
+
+// Aprobar o rechazar oferta
+router.put('/offers/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, motivo } = req.body;
+
+    const offer = await Offer.findById(id);
+    if (!offer) {
+      return res.status(404).json({ message: 'Oferta no encontrada' });
+    }
+
+    if (action === 'approve') {
+      offer.estado = 'aprobada';
+    } else if (action === 'reject') {
+      offer.estado = 'rechazada';
+      offer.motivoRechazo = motivo;
+    }
+
+    await offer.save();
+    res.json(offer);
+  } catch (error) {
+    console.error('Error aprobando/rechazando oferta:', error);
+    res.status(500).json({ message: 'Error procesando la solicitud' });
+  }
+});
+
+// Aprobar o rechazar actividad
+router.put('/activities/:id/approve', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, motivo } = req.body;
+
+    const activity = await Activity.findById(id);
+    if (!activity) {
+      return res.status(404).json({ message: 'Actividad no encontrada' });
+    }
+
+    if (action === 'approve') {
+      activity.estado = 'aprobada';
+    } else if (action === 'reject') {
+      activity.estado = 'rechazada';
+      activity.motivoRechazo = motivo;
+    }
+
+    await activity.save();
+    res.json(activity);
+  } catch (error) {
+    console.error('Error aprobando/rechazando actividad:', error);
+    res.status(500).json({ message: 'Error procesando la solicitud' });
+  }
+});
+
+// Eliminar usuario
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // No permitir eliminar el propio usuario admin
+    if (id === req.user._id.toString()) {
+      return res.status(400).json({ message: 'No puedes eliminar tu propia cuenta' });
+    }
+
+    const user = await User.findByIdAndDelete(id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    res.json({ message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error('Error eliminando usuario:', error);
+    res.status(500).json({ message: 'Error eliminando usuario' });
+  }
+});
+
+// Eliminar oferta
+router.delete('/offers/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const offer = await Offer.findByIdAndDelete(id);
+    
+    if (!offer) {
+      return res.status(404).json({ message: 'Oferta no encontrada' });
+    }
+
+    res.json({ message: 'Oferta eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando oferta:', error);
+    res.status(500).json({ message: 'Error eliminando oferta' });
+  }
+});
+
+// Eliminar actividad
+router.delete('/activities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const activity = await Activity.findByIdAndDelete(id);
+    
+    if (!activity) {
+      return res.status(404).json({ message: 'Actividad no encontrada' });
+    }
+
+    res.json({ message: 'Actividad eliminada correctamente' });
+  } catch (error) {
+    console.error('Error eliminando actividad:', error);
+    res.status(500).json({ message: 'Error eliminando actividad' });
+  }
+});
+
+// Actualizar usuario
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // No permitir cambiar ciertos campos sensibles
+    delete updateData.password;
+    delete updateData.email;
+
+    const user = await User.findByIdAndUpdate(
+      id, 
+      updateData, 
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error actualizando usuario:', error);
+    res.status(500).json({ message: 'Error actualizando usuario' });
   }
 });
 

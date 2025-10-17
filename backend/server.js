@@ -6,7 +6,10 @@ require('dotenv').config();
 const app = express();
 
 // ✅ 1. CORS SIMPLIFICADO TEMPORALMENTE
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000', // URL de tu frontend
+  credentials: true
+}));
 
 // ✅ 2. MIDDLEWARE DE BODY-PARSING PRIMERO
 app.use(express.json({ limit: '10mb' }));

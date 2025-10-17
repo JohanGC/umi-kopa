@@ -20,8 +20,8 @@ const createAdminUser = async () => {
     // Crear usuario administrador
     const adminUser = new User({
       nombre: 'Administrador Principal',
-      email: 'admin@ofertasapp.com',
-      password: 'Admin123456', // Se encriptará automáticamente
+      email: 'johan@ofertasapp.com',
+      password: 'Admin123', // Se encriptará automáticamente
       rol: 'administrador',
       telefono: '+57 300 000 0000',
       empresa: 'OfertasApp',

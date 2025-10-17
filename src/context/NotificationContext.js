@@ -1,11 +1,17 @@
-import React, { createContext, useState, useContext } from 'react';
+// context/NotificationContext.js
+import React, { createContext, useContext, useState } from 'react';
 
 const NotificationContext = createContext();
 
 export const useNotification = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotification debe usarse dentro de NotificationProvider');
+    // Fallback si no hay provider
+    return {
+      addNotification: (message, type = 'info') => {
+        console.log(`[${type.toUpperCase()}] ${message}`);
+      }
+    };
   }
   return context;
 };
@@ -13,32 +19,26 @@ export const useNotification = () => {
 export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
-  const addNotification = (message, type = 'info', duration = 5000) => {
-    const id = Date.now() + Math.random();
-    const notification = { id, message, type, duration };
-    
+  const addNotification = (message, type = 'info') => {
+    const id = Date.now();
+    const notification = { id, message, type };
     setNotifications(prev => [...prev, notification]);
     
-    // Auto-remover después de la duración
+    // Auto-remove after 5 seconds
     setTimeout(() => {
-      removeNotification(id);
-    }, duration);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 5000);
   };
 
   const removeNotification = (id) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  };
-
-  const clearAll = () => {
-    setNotifications([]);
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   return (
-    <NotificationContext.Provider value={{
-      notifications,
-      addNotification,
-      removeNotification,
-      clearAll
+    <NotificationContext.Provider value={{ 
+      notifications, 
+      addNotification, 
+      removeNotification 
     }}>
       {children}
     </NotificationContext.Provider>

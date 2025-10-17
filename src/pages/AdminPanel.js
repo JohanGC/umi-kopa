@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { authService } from '../services/auth';
-import { dataService } from '../services/dataService';
+import { authService } from '../services/auth';// Tu servicio de auth existente
+import { dataService } from '../services/dataService';// El nuevo con API
 import { useNotification } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
+// En AdminPanel.js - verifica estos imports
 
 const AdminPanel = () => {
   const [stats, setStats] = useState({});
@@ -63,19 +64,30 @@ const AdminPanel = () => {
 
   const handleApprove = async (id, type) => {
     try {
-      await dataService.approveOffer(id, 'approve');
+      if (type === 'offer') {
+        await dataService.approveOffer(id, 'approve');
+      } else {
+        await dataService.approveActivity(id, 'approve');
+      }
       addNotification(`${type === 'offer' ? 'Oferta' : 'Actividad'} aprobada correctamente`, 'success');
-      loadDashboardData(); // Recargar datos
+      loadDashboardData();
     } catch (error) {
       addNotification('Error al aprobar', 'error');
     }
   };
 
-  const handleReject = async (id, type, motivo = 'No cumple con las políticas') => {
+  const handleReject = async (id, type) => {
+    const motivo = prompt('Ingrese el motivo del rechazo:', 'No cumple con las políticas');
+    if (motivo === null) return; // Usuario canceló
+
     try {
-      await dataService.approveOffer(id, 'reject', motivo);
+      if (type === 'offer') {
+        await dataService.approveOffer(id, 'reject', motivo);
+      } else {
+        await dataService.approveActivity(id, 'reject', motivo);
+      }
       addNotification(`${type === 'offer' ? 'Oferta' : 'Actividad'} rechazada`, 'warning');
-      loadDashboardData(); // Recargar datos
+      loadDashboardData();
     } catch (error) {
       addNotification('Error al rechazar', 'error');
     }
@@ -87,7 +99,7 @@ const AdminPanel = () => {
     }
 
     try {
-      // Aquí iría la llamada a la API para eliminar usuario
+      await dataService.deleteUser(userId);
       addNotification('Usuario eliminado correctamente', 'success');
       loadDashboardData();
     } catch (error) {
@@ -97,7 +109,6 @@ const AdminPanel = () => {
 
   const handleToggleUserStatus = async (userId, currentStatus) => {
     try {
-      // Aquí iría la llamada a la API para cambiar estado
       const newStatus = !currentStatus;
       await dataService.updateUser(userId, { activo: newStatus });
       addNotification(`Usuario ${newStatus ? 'activado' : 'desactivado'}`, 'success');
@@ -107,13 +118,55 @@ const AdminPanel = () => {
     }
   };
 
+  const handleDeleteOffer = async (offerId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta oferta?')) {
+      return;
+    }
+
+    try {
+      await dataService.deleteOffer(offerId);
+      addNotification('Oferta eliminada correctamente', 'success');
+      loadDashboardData();
+    } catch (error) {
+      addNotification('Error eliminando oferta', 'error');
+    }
+  };
+
+  const handleDeleteActivity = async (activityId) => {
+    if (!window.confirm('¿Estás seguro de que quieres eliminar esta actividad?')) {
+      return;
+    }
+
+    try {
+      await dataService.deleteActivity(activityId);
+      addNotification('Actividad eliminada correctamente', 'success');
+      loadDashboardData();
+    } catch (error) {
+      addNotification('Error eliminando actividad', 'error');
+    }
+  };
+
+  const handleViewDetails = (item, type) => {
+    // Aquí puedes implementar un modal o navegación para ver detalles
+    console.log(`Ver detalles de ${type}:`, item);
+    addNotification(`Viendo detalles de ${type}`, 'info');
+  };
+
+  const handleEdit = (item, type) => {
+    // Aquí puedes implementar la edición
+    console.log(`Editar ${type}:`, item);
+    addNotification(`Editando ${type}`, 'info');
+  };
+
   const getStatusBadge = (estado) => {
     const statusConfig = {
       pendiente: { class: 'bg-warning', text: '⏳ Pendiente' },
       aprobada: { class: 'bg-success', text: '✅ Aprobada' },
       rechazada: { class: 'bg-danger', text: '❌ Rechazada' },
       expirada: { class: 'bg-secondary', text: '📅 Expirada' },
-      completada: { class: 'bg-info', text: '🎯 Completada' }
+      completada: { class: 'bg-info', text: '🎯 Completada' },
+      activa: { class: 'bg-success', text: '✅ Activa' },
+      inactiva: { class: 'bg-secondary', text: '⏸️ Inactiva' }
     };
     
     const config = statusConfig[estado] || statusConfig.pendiente;
@@ -129,6 +182,16 @@ const AdminPanel = () => {
     
     const config = roleConfig[rol] || roleConfig.usuario;
     return <span className={`badge ${config.class}`}>{config.text}</span>;
+  };
+
+  // Función para formatear fechas
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   if (!currentUser) {
@@ -195,12 +258,6 @@ const AdminPanel = () => {
                 onClick={() => setActiveTab('pending')}
               >
                 ⏳ Pendientes de Aprobación
-              </button>
-              <button
-                className={`list-group-item list-group-item-action ${activeTab === 'reports' ? 'active' : ''}`}
-                onClick={() => setActiveTab('reports')}
-              >
-                📈 Reportes Avanzados
               </button>
             </div>
           </div>
@@ -342,9 +399,13 @@ const AdminPanel = () => {
                         <td>{user.telefono || 'N/A'}</td>
                         <td>{getRoleBadge(user.rol)}</td>
                         <td>{user.empresa || 'N/A'}</td>
-                        <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                        <td>{formatDate(user.createdAt)}</td>
                         <td>
-                          <span className={`badge ${user.activo !== false ? 'bg-success' : 'bg-secondary'}`}>
+                          <span 
+                            className={`badge ${user.activo !== false ? 'bg-success' : 'bg-secondary'} cursor-pointer`}
+                            onClick={() => handleToggleUserStatus(user._id, user.activo !== false)}
+                            title="Click para cambiar estado"
+                          >
                             {user.activo !== false ? 'Activo' : 'Inactivo'}
                           </span>
                         </td>
@@ -353,12 +414,14 @@ const AdminPanel = () => {
                             <button 
                               className="btn btn-outline-primary"
                               title="Ver detalles"
+                              onClick={() => handleViewDetails(user, 'usuario')}
                             >
                               👁️
                             </button>
                             <button 
                               className="btn btn-outline-warning"
                               title="Editar usuario"
+                              onClick={() => handleEdit(user, 'usuario')}
                             >
                               ✏️
                             </button>
@@ -415,7 +478,7 @@ const AdminPanel = () => {
                         <td>
                           <strong>{offer.titulo}</strong>
                           <br />
-                          <small className="text-muted">{offer.descripcion.substring(0, 50)}...</small>
+                          <small className="text-muted">{offer.descripcion?.substring(0, 50)}...</small>
                         </td>
                         <td>{offer.empresa}</td>
                         <td>
@@ -425,11 +488,13 @@ const AdminPanel = () => {
                           <span className="badge bg-success">{offer.descuento}</span>
                         </td>
                         <td>
-                          {offer.participantes}/{offer.maxParticipantes}
+                          {offer.participantes || 0}/{offer.maxParticipantes || 0}
                           <div className="progress mt-1" style={{height: '4px'}}>
                             <div 
                               className="progress-bar" 
-                              style={{width: `${(offer.participantes / offer.maxParticipantes) * 100}%`}}
+                              style={{
+                                width: `${((offer.participantes || 0) / (offer.maxParticipantes || 1)) * 100}%`
+                              }}
                             ></div>
                           </div>
                         </td>
@@ -441,16 +506,28 @@ const AdminPanel = () => {
                           </div>
                         </td>
                         <td>{getStatusBadge(offer.estado)}</td>
-                        <td>{new Date(offer.createdAt).toLocaleDateString()}</td>
+                        <td>{formatDate(offer.createdAt)}</td>
                         <td>
                           <div className="btn-group btn-group-sm">
-                            <button className="btn btn-outline-primary" title="Ver detalles">
+                            <button 
+                              className="btn btn-outline-primary" 
+                              title="Ver detalles"
+                              onClick={() => handleViewDetails(offer, 'oferta')}
+                            >
                               👁️
                             </button>
-                            <button className="btn btn-outline-warning" title="Editar">
+                            <button 
+                              className="btn btn-outline-warning" 
+                              title="Editar"
+                              onClick={() => handleEdit(offer, 'oferta')}
+                            >
                               ✏️
                             </button>
-                            <button className="btn btn-outline-danger" title="Eliminar">
+                            <button 
+                              className="btn btn-outline-danger" 
+                              title="Eliminar"
+                              onClick={() => handleDeleteOffer(offer._id)}
+                            >
                               🗑️
                             </button>
                           </div>
@@ -460,6 +537,109 @@ const AdminPanel = () => {
                   </tbody>
                 </table>
               </div>
+
+              {offers.length === 0 && (
+                <div className="alert alert-info text-center">
+                  <h5>📝 No hay ofertas registradas</h5>
+                  <p>Las ofertas aparecerán aquí cuando sean creadas.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Todas las Actividades */}
+          {activeTab === 'activities' && (
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <h2>🎯 Todas las Actividades</h2>
+                <span className="badge bg-primary">Total: {activities.length}</span>
+              </div>
+              
+              <div className="table-responsive">
+                <table className="table table-striped table-hover">
+                  <thead className="table-dark">
+                    <tr>
+                      <th>Título</th>
+                      <th>Empresa</th>
+                      <th>Categoría</th>
+                      <th>Fecha</th>
+                      <th>Participantes</th>
+                      <th>Precio</th>
+                      <th>Estado</th>
+                      <th>Fecha Creación</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activities.map(activity => (
+                      <tr key={activity._id}>
+                        <td>
+                          <strong>{activity.titulo}</strong>
+                          <br />
+                          <small className="text-muted">{activity.descripcion?.substring(0, 50)}...</small>
+                        </td>
+                        <td>{activity.empresa}</td>
+                        <td>
+                          <span className="badge bg-info">{activity.categoria}</span>
+                        </td>
+                        <td>{formatDate(activity.fecha)}</td>
+                        <td>
+                          {activity.participantes || 0}/{activity.maxParticipantes || 0}
+                          <div className="progress mt-1" style={{height: '4px'}}>
+                            <div 
+                              className="progress-bar" 
+                              style={{
+                                width: `${((activity.participantes || 0) / (activity.maxParticipantes || 1)) * 100}%`
+                              }}
+                            ></div>
+                          </div>
+                        </td>
+                        <td>
+                          <div>
+                            <small className="text-decoration-line-through">${activity.precioOriginal}</small>
+                            <br />
+                            <strong className="text-success">${activity.precioDescuento}</strong>
+                          </div>
+                        </td>
+                        <td>{getStatusBadge(activity.estado)}</td>
+                        <td>{formatDate(activity.createdAt)}</td>
+                        <td>
+                          <div className="btn-group btn-group-sm">
+                            <button 
+                              className="btn btn-outline-primary" 
+                              title="Ver detalles"
+                              onClick={() => handleViewDetails(activity, 'actividad')}
+                            >
+                              👁️
+                            </button>
+                            <button 
+                              className="btn btn-outline-warning" 
+                              title="Editar"
+                              onClick={() => handleEdit(activity, 'actividad')}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              className="btn btn-outline-danger" 
+                              title="Eliminar"
+                              onClick={() => handleDeleteActivity(activity._id)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {activities.length === 0 && (
+                <div className="alert alert-info text-center">
+                  <h5>📝 No hay actividades registradas</h5>
+                  <p>Las actividades aparecerán aquí cuando sean creadas.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -491,7 +671,7 @@ const AdminPanel = () => {
                                   <span className="badge bg-success">{offer.descuento}</span>
                                 </div>
                                 <small className="text-muted">
-                                  Empresa: {offer.empresa} | Creado: {new Date(offer.createdAt).toLocaleDateString()}
+                                  Empresa: {offer.empresa} | Creado: {formatDate(offer.createdAt)}
                                 </small>
                               </div>
                               <div className="btn-group btn-group-sm">
@@ -538,7 +718,7 @@ const AdminPanel = () => {
                                   <span className="badge bg-success">{activity.descuento}</span>
                                 </div>
                                 <small className="text-muted">
-                                  Empresa: {activity.empresa} | Fecha: {new Date(activity.fecha).toLocaleDateString()}
+                                  Empresa: {activity.empresa} | Fecha: {formatDate(activity.fecha)}
                                 </small>
                               </div>
                               <div className="btn-group btn-group-sm">

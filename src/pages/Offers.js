@@ -6,10 +6,6 @@ import FavoriteButton from '../components/FavoriteButton';
 import { useCart } from '../context/CartContext';
 import { useNotification } from '../context/NotificationContext';
 
-
-// Función para agregar al carrito
-
-
 const Offers = () => {
   const [offers, setOffers] = useState([]);
   const [filteredOffers, setFilteredOffers] = useState([]);
@@ -17,6 +13,7 @@ const Offers = () => {
   const [userParticipations, setUserParticipations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const { addNotification } = useNotification();
   
@@ -28,17 +25,36 @@ const Offers = () => {
   ];
 
   useEffect(() => {
-    const user = authService.getCurrentUser();
-    setCurrentUser(user);
-    
-    if (user) {
-      const participations = dataService.getUserParticipations(user.email);
-      setUserParticipations(participations.offers);
-    }
-    
-    const allOffers = dataService.getOffers();
-    setOffers(allOffers);
-    setFilteredOffers(allOffers);
+    const initializeData = async () => {
+      try {
+        setLoading(true);
+        const user = authService.getCurrentUser();
+        setCurrentUser(user);
+        
+        if (user) {
+          const participations = dataService.getUserParticipations(user.email);
+          setUserParticipations(participations.offers);
+        }
+        
+        // ✅ CORREGIDO: Usar await para funciones async
+        const allOffers = await dataService.getOffers();
+        console.log('📦 Ofertas obtenidas:', allOffers);
+        
+        // ✅ Asegurar que sea array
+        const offersArray = Array.isArray(allOffers) ? allOffers : [];
+        
+        setOffers(offersArray);
+        setFilteredOffers(offersArray);
+      } catch (error) {
+        console.error('❌ Error cargando ofertas:', error);
+        setOffers([]);
+        setFilteredOffers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeData();
   }, []);
 
   useEffect(() => {
@@ -46,17 +62,22 @@ const Offers = () => {
   }, [searchTerm, categoryFilter, offers]);
 
   const filterOffers = () => {
-    let filtered = offers.filter(offer => offer.isActive);
+    let filtered = (offers || []).filter(offer => offer.isActive);
 
     if (searchTerm) {
       filtered = filtered.filter(offer =>
-        offer.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        offer.description.toLowerCase().includes(searchTerm.toLowerCase())
+        offer.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        offer.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        offer.titulo?.toLowerCase().includes(searchTerm.toLowerCase()) || // Para compatibilidad
+        offer.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) // Para compatibilidad
       );
     }
 
     if (categoryFilter) {
-      filtered = filtered.filter(offer => offer.category === categoryFilter);
+      filtered = filtered.filter(offer => 
+        offer.category === categoryFilter || 
+        offer.categoria === categoryFilter // Para compatibilidad
+      );
     }
 
     setFilteredOffers(filtered);
@@ -68,30 +89,35 @@ const Offers = () => {
 
   const handleAddToCart = (item, type) => {
     addToCart(item, type);
-    addNotification(`"${item.title}" agregado al carrito`, 'success');
+    addNotification(`"${item.title || item.titulo}" agregado al carrito`, 'success');
   };
 
   const handleFilter = (category) => {
     setCategoryFilter(category);
   };
 
-  const handleParticipate = (offerId) => {
+  const handleParticipate = async (offerId) => {
     if (!currentUser) {
       alert('Debes iniciar sesión para participar en las ofertas');
       return;
     }
 
-    const success = dataService.participateInOffer(offerId, currentUser.email);
-    if (success) {
-      alert('¡Te has unido a esta oferta exitosamente!');
-      // Actualizar la lista
-      const updatedOffers = dataService.getOffers();
-      setOffers(updatedOffers);
-      
-      const participations = dataService.getUserParticipations(currentUser.email);
-      setUserParticipations(participations.offers);
-    } else {
-      alert('No se pudo unir a la oferta. Puede que esté llena.');
+    try {
+      const success = await dataService.participateInOffer(offerId);
+      if (success) {
+        addNotification('¡Te has unido a esta oferta exitosamente!', 'success');
+        // Actualizar la lista
+        const updatedOffers = await dataService.getOffers();
+        const offersArray = Array.isArray(updatedOffers) ? updatedOffers : [];
+        setOffers(offersArray);
+        
+        const participations = dataService.getUserParticipations(currentUser.email);
+        setUserParticipations(participations.offers);
+      } else {
+        addNotification('No se pudo unir a la oferta. Puede que esté llena.', 'error');
+      }
+    } catch (error) {
+      addNotification('Error al participar en la oferta', 'error');
     }
   };
 
@@ -100,14 +126,26 @@ const Offers = () => {
   };
 
   const getProgressPercentage = (participants, maxParticipants) => {
-    return (participants / maxParticipants) * 100;
+    return maxParticipants > 0 ? (participants / maxParticipants) * 100 : 0;
   };
+
+  if (loading) {
+    return (
+      <div className="container mt-5">
+        <div className="d-flex justify-content-center align-items-center" style={{height: '200px'}}>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando ofertas...</span>
+          </div>
+          <span className="ms-2">Cargando ofertas...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mt-5">
       <h2 className="mb-4">Ofertas Disponibles</h2>
       
-      {/* Componente de búsqueda y filtros */}
       <SearchFilter 
         onSearch={handleSearch}
         onFilter={handleFilter}
@@ -120,10 +158,9 @@ const Offers = () => {
         </div>
       )}
 
-      {/* Contador de resultados */}
       <div className="mb-3">
         <small className="text-muted">
-          Mostrando {filteredOffers.length} de {offers.filter(o => o.isActive).length} ofertas
+          Mostrando {filteredOffers.length} de {(offers || []).filter(o => o.isActive).length} ofertas
         </small>
       </div>
 
@@ -137,50 +174,59 @@ const Offers = () => {
           </div>
         ) : (
           filteredOffers.map(offer => (
-            <div key={offer.id} className="col-md-6 col-lg-4 mb-4">
+            <div key={offer.id || offer._id} className="col-md-6 col-lg-4 mb-4">
               <div className="card h-100">
                 <div className="card-body d-flex flex-column">
                   <div className="d-flex justify-content-between align-items-start mb-3">
                     <span className="display-4">{offer.image}</span>
-                    <FavoriteButton itemId={offer.id} type="offer" />
+                    <FavoriteButton itemId={offer.id || offer._id} type="offer" />
                   </div>
                   
-                  <h3 className="card-title">{offer.title}</h3>
-                  <p className="card-text flex-grow-1">{offer.description}</p>
+                  <h3 className="card-title">{offer.title || offer.titulo}</h3>
+                  <p className="card-text flex-grow-1">{offer.description || offer.descripcion}</p>
                   
                   <div className="mb-2">
-                    <span className="badge bg-success fs-6">{offer.discount} DESCUENTO</span>
+                    <span className="badge bg-success fs-6">{offer.discount || offer.descuento} DESCUENTO</span>
                     <span className="badge bg-secondary ms-2 fs-6">
-                      {categories.find(cat => cat.value === offer.category)?.label || offer.category}
+                      {categories.find(cat => 
+                        cat.value === (offer.category || offer.categoria)
+                      )?.label || (offer.category || offer.categoria)}
                     </span>
                   </div>
                   
                   <div className="mb-3">
                     <div className="d-flex justify-content-between small text-muted">
-                      <span>Participantes: {offer.participants}/{offer.maxParticipants}</span>
-                      <span>{Math.round(getProgressPercentage(offer.participants, offer.maxParticipants))}%</span>
+                      <span>Participantes: {offer.participants || offer.participantes}/{offer.maxParticipants || offer.maxParticipantes}</span>
+                      <span>{Math.round(getProgressPercentage(
+                        offer.participants || offer.participantes, 
+                        offer.maxParticipants || offer.maxParticipantes
+                      ))}%</span>
                     </div>
                     <div className="progress" style={{height: '8px'}}>
                       <div 
                         className="progress-bar" 
-                        style={{width: `${getProgressPercentage(offer.participants, offer.maxParticipants)}%`}}
+                        style={{width: `${getProgressPercentage(
+                          offer.participants || offer.participantes, 
+                          offer.maxParticipants || offer.maxParticipantes
+                        )}%`}}
                       ></div>
                     </div>
                   </div>
 
                   {currentUser ? (
-                    isUserParticipating(offer.id) ? (
-                      
+                    isUserParticipating(offer.id || offer._id) ? (
                       <button className="btn btn-success" disabled>
                         ✅ Ya estás participando
                       </button>
                     ) : (
                       <button 
                         className="btn btn-primary"
-                        onClick={() => handleParticipate(offer.id)}
-                        disabled={offer.participants >= offer.maxParticipants}
+                        onClick={() => handleParticipate(offer.id || offer._id)}
+                        disabled={(offer.participants || offer.participantes) >= (offer.maxParticipants || offer.maxParticipantes)}
                       >
-                        {offer.participants >= offer.maxParticipants ? '❌ Oferta llena' : '🎯 Participar'}
+                        {(offer.participants || offer.participantes) >= (offer.maxParticipants || offer.maxParticipantes) 
+                          ? '❌ Oferta llena' 
+                          : '🎯 Participar'}
                       </button>
                     )
                   ) : (
