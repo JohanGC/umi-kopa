@@ -131,25 +131,33 @@ const CreateOfferForm = () => {
   const createOffer = async (offerData) => {
     try {
       const token = localStorage.getItem('token');
-      if (token) {
-        const response = await fetch('http://localhost:5000/api/offers', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(offerData)
-        });
+      console.log('🔐 Token disponible:', !!token);
+      console.log('📤 Enviando oferta a API:', offerData);
+      
+      const response = await fetch('http://localhost:5000/api/offers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(offerData)
+      });
 
-        if (response.ok) {
-          return true;
-        }
+      console.log('📥 Respuesta de API:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Oferta creada en MongoDB:', result);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Error de API:', errorData);
+        throw new Error(errorData.message || 'Error al crear oferta');
       }
-
-      return createOfferInLocalStorage(offerData);
       
     } catch (error) {
-      console.error('Error con API, usando localStorage:', error);
+      console.error('❌ Error con API, usando localStorage:', error);
+      // Fallback a localStorage
       return createOfferInLocalStorage(offerData);
     }
   };

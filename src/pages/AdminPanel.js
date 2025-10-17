@@ -93,6 +93,23 @@ const AdminPanel = () => {
     }
   };
 
+  const loadPendingData = async () => {
+    try {
+      const [pendingOffers, pendingActivities] = await Promise.all([
+        dataService.getPendingOffers(),
+        dataService.getPendingActivities()
+      ]);
+      
+      console.log('📊 Ofertas pendientes:', pendingOffers);
+      console.log('📊 Actividades pendientes:', pendingActivities);
+      
+      setPendingOffers(Array.isArray(pendingOffers) ? pendingOffers : []);
+      setPendingActivities(Array.isArray(pendingActivities) ? pendingActivities : []);
+    } catch (error) {
+      console.error('Error cargando datos pendientes:', error);
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('¿Estás seguro de que quieres eliminar este usuario? Esta acción no se puede deshacer.')) {
       return;

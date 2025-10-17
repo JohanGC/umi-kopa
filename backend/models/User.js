@@ -26,19 +26,23 @@ const userSchema = new mongoose.Schema({
   },
   telefono: {
     type: String,
-    default: '' // ✅ Cambiar a opcional con valor por defecto
+    default: ''
   },
   empresa: {
     type: String,
-    default: '' // ✅ Cambiar a opcional con valor por defecto
+    default: ''
   },
   direccion: {
     type: String,
-    default: '' // ✅ Cambiar a opcional con valor por defecto
+    default: ''
   },
   verificada: {
     type: Boolean,
     default: false
+  },
+  activo: { // ✅ AGREGADO: Campo activo faltante
+    type: Boolean,
+    default: true
   },
   participaciones: {
     ofertas: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Offer' }],
@@ -77,4 +81,5 @@ userSchema.methods.isOferente = function() {
   return this.rol === 'oferente';
 };
 
-module.exports = mongoose.model('User', userSchema);
+// ✅ CORREGIDO: Verificar si el modelo ya existe antes de compilar
+module.exports = mongoose.models.User || mongoose.model('User', userSchema);

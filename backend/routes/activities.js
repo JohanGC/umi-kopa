@@ -18,19 +18,28 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener actividades pendientes de aprobación (solo admin)
-router.get('/pending', auth, requireOferenteOrAdmin, async (req, res) => {
+router.get('/pending', auth, async (req, res) => { // ✅ QUITAR requireOferenteOrAdmin
   try {
-    if (!req.user.isAdmin()) {
+    console.log('🔐 Verificando permisos para usuario:', req.user.email);
+    
+    // ✅ CORREGIDO: Verificar si es admin de manera más simple
+    if (req.user.rol !== 'administrador') {
       return res.status(403).json({ message: 'Se requieren privilegios de administrador' });
     }
 
+    console.log('📋 Buscando actividades pendientes...');
     const activities = await Activity.find({ estado: 'pendiente' })
       .populate('creador', 'nombre empresa email')
       .sort({ createdAt: -1 });
     
+    console.log('✅ Actividades pendientes encontradas:', activities.length);
     res.json(activities);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener actividades pendientes' });
+    console.error('❌ Error al obtener actividades pendientes:', error);
+    res.status(500).json({ 
+      message: 'Error al obtener actividades pendientes',
+      error: error.message 
+    });
   }
 });
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { auth } = require('../middleware/auth'); // ✅ IMPORTAR middleware
 const router = express.Router();
 
 // Middleware de logging para debugging
@@ -9,7 +10,7 @@ router.use((req, res, next) => {
   next();
 });
 
-// Registro de usuario - MEJORADO
+// Registro de usuario
 router.post('/register', async (req, res) => {
   try {
     console.log('📝 Intentando registrar usuario:', req.body.email);
@@ -67,7 +68,7 @@ router.post('/register', async (req, res) => {
 
     console.log('✅ Usuario registrado exitosamente:', user.email);
 
-    // Generar token
+    // ✅ CORREGIDO: Usar fallback consistente
     const token = jwt.sign(
       { userId: user._id }, 
       process.env.JWT_SECRET || 'fallback_secret_development',
@@ -105,7 +106,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login de usuario - MEJORADO
+// Login de usuario
 router.post('/login', async (req, res) => {
   try {
     console.log('🔑 Intentando login:', req.body.email);
@@ -138,7 +139,7 @@ router.post('/login', async (req, res) => {
 
     console.log('✅ Login exitoso:', user.email);
 
-    // Generar token
+    // ✅ CORREGIDO: Usar fallback consistente
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET || 'fallback_secret_development',
@@ -167,7 +168,32 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Verificar token
+// ✅ CORREGIDO: Agregar endpoint /profile (que es lo que busca el frontend)
+router.get('/profile', auth, async (req, res) => {
+  try {
+    console.log('🔍 Obteniendo perfil para:', req.user.email);
+    
+    // El usuario ya está autenticado por el middleware auth
+    res.json({
+      user: {
+        id: req.user._id,
+        nombre: req.user.nombre,
+        email: req.user.email,
+        rol: req.user.rol,
+        empresa: req.user.empresa,
+        verificada: req.user.verificada
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error en /profile:', error);
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      ...(process.env.NODE_ENV === 'development' && { error: error.message })
+    });
+  }
+});
+
+// Mantener /verify para compatibilidad
 router.get('/verify', async (req, res) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -178,7 +204,8 @@ router.get('/verify', async (req, res) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // ✅ CORREGIDO: Usar fallback consistente
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_development');
     const user = await User.findById(decoded.userId);
     
     if (!user) {
@@ -200,6 +227,16 @@ router.get('/verify', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error verificando token:', error);
+    
+    // ✅ CORREGIDO: Manejo específico de errores
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Token inválido' });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token expirado' });
+    }
+    
     res.status(401).json({ 
       message: 'Token inválido' 
     });

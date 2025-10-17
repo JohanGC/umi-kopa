@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const activitySchema = new mongoose.Schema({
+const offerSchema = new mongoose.Schema({
   titulo: {
     type: String,
     required: true
@@ -16,11 +16,11 @@ const activitySchema = new mongoose.Schema({
   categoria: {
     type: String,
     required: true,
-    enum: ['taller', 'tour', 'clase', 'evento', 'conferencia']
+    enum: ['temporada', 'nocturna', 'fin-de-semana', 'flash', 'exclusiva', 'early-bird']
   },
   imagen: {
     type: String,
-    default: '🎯'
+    default: '🏷️'
   },
   participantes: {
     type: Number,
@@ -38,21 +38,22 @@ const activitySchema = new mongoose.Schema({
     type: Number,
     required: true
   },
-  fecha: {
+  fechaInicio: {
     type: Date,
     required: true
   },
-  hora: {
-    type: String,
+  fechaFin: {
+    type: Date,
     required: true
   },
-  duracion: {
+  condiciones: {
     type: String,
-    required: true
+    default: ''
   },
-  ubicacion: {
+  tipoOferta: {
     type: String,
-    required: true
+    enum: ['general', 'exclusiva', 'flash'],
+    default: 'general'
   },
   activa: {
     type: Boolean,
@@ -67,10 +68,9 @@ const activitySchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  requisitos: [String],
   estado: {
     type: String,
-    enum: ['pendiente', 'aprobada', 'rechazada', 'completada'],
+    enum: ['pendiente', 'aprobada', 'rechazada'],
     default: 'pendiente'
   },
   motivoRechazo: {
@@ -80,7 +80,8 @@ const activitySchema = new mongoose.Schema({
   timestamps: true
 });
 
-activitySchema.pre('save', function(next) {
+// ✅ CORREGIDO: Calcular precio con descuento automáticamente
+offerSchema.pre('save', function(next) {
   if (this.isModified('descuento') || this.isModified('precioOriginal')) {
     const descuento = parseInt(this.descuento) || 0;
     this.precioDescuento = this.precioOriginal * (1 - descuento / 100);
@@ -88,4 +89,5 @@ activitySchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('Activity', activitySchema);
+// ✅ CORREGIDO: Verificar si el modelo ya existe antes de compilar
+module.exports = mongoose.models.Offer || mongoose.model('Offer', offerSchema);

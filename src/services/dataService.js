@@ -65,7 +65,7 @@ export const dataService = {
       console.log('🏷️ Obteniendo ofertas desde API...');
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${API_URL}/admin/offers`, {
+      const response = await fetch(`${API_URL}/offers`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` })
@@ -91,8 +91,7 @@ export const dataService = {
     try {
       console.log('🎯 Obteniendo actividades desde API...');
       const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_URL}/admin/activities`, {
+      const response = await fetch(`${API_URL}/activities`, {
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` })
@@ -113,10 +112,12 @@ export const dataService = {
     }
   },
 
-  // Obtener ofertas pendientes
+  // Obtener ofertas pendientes - FUNCIÓN AGREGADA
   getPendingOffers: async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('⏳ Obteniendo ofertas pendientes...');
+      
       const response = await fetch(`${API_URL}/admin/offers/pending`, {
         headers: {
           'Content-Type': 'application/json',
@@ -128,11 +129,13 @@ export const dataService = {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Ofertas pendientes obtenidas:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching pending offers:', error);
+      console.error('❌ Error fetching pending offers:', error);
       // Fallback a localStorage
-      const offers = await dataService.getOffers();
+      const offers = dataService.getLocalStorageOffers();
       return Array.isArray(offers) ? offers.filter(offer => offer.estado === 'pendiente') : [];
     }
   },
@@ -141,6 +144,8 @@ export const dataService = {
   getPendingActivities: async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('⏳ Obteniendo actividades pendientes...');
+      
       const response = await fetch(`${API_URL}/admin/activities/pending`, {
         headers: {
           'Content-Type': 'application/json',
@@ -152,11 +157,13 @@ export const dataService = {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('✅ Actividades pendientes obtenidas:', data);
+      return data;
     } catch (error) {
-      console.error('Error fetching pending activities:', error);
+      console.error('❌ Error fetching pending activities:', error);
       // Fallback a localStorage
-      const activities = await dataService.getActivities();
+      const activities = dataService.getLocalStorageActivities();
       return Array.isArray(activities) ? activities.filter(activity => activity.estado === 'pendiente') : [];
     }
   },
@@ -305,121 +312,153 @@ export const dataService = {
   // ==================== FUNCIONES DE FALLBACK (LOCALSTORAGE) ====================
 
   getLocalStorageStats: () => {
-    const users = dataService.getLocalStorageUsers();
-    const offers = dataService.getLocalStorageOffers();
-    const activities = dataService.getLocalStorageActivities();
-    
-    const totalUsers = users.length;
-    const newUsers = users.filter(user => {
-      const userDate = new Date(user.createdAt);
-      const currentDate = new Date();
-      const diffTime = Math.abs(currentDate - userDate);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays <= 30;
-    }).length;
+    try {
+      const users = dataService.getLocalStorageUsers();
+      const offers = dataService.getLocalStorageOffers();
+      const activities = dataService.getLocalStorageActivities();
+      
+      const totalUsers = users.length;
+      const newUsers = users.filter(user => {
+        try {
+          const userDate = new Date(user.createdAt);
+          const currentDate = new Date();
+          const diffTime = Math.abs(currentDate - userDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 30;
+        } catch (e) {
+          return false;
+        }
+      }).length;
 
-    const totalOffers = offers.filter(offer => offer.estado === 'aprobada').length;
-    const pendingOffers = offers.filter(offer => offer.estado === 'pendiente').length;
-    
-    const totalActivities = activities.filter(activity => activity.estado === 'aprobada').length;
-    const pendingActivities = activities.filter(activity => activity.estado === 'pendiente').length;
+      const totalOffers = Array.isArray(offers) ? offers.filter(offer => offer.estado === 'aprobada').length : 0;
+      const pendingOffers = Array.isArray(offers) ? offers.filter(offer => offer.estado === 'pendiente').length : 0;
+      
+      const totalActivities = Array.isArray(activities) ? activities.filter(activity => activity.estado === 'aprobada').length : 0;
+      const pendingActivities = Array.isArray(activities) ? activities.filter(activity => activity.estado === 'pendiente').length : 0;
 
-    const totalRevenue = offers.reduce((sum, offer) => {
-      return sum + (offer.participantes * offer.precioDescuento);
-    }, 0) + activities.reduce((sum, activity) => {
-      return sum + (activity.participantes * activity.precioDescuento);
-    }, 0);
+      const totalRevenue = (Array.isArray(offers) ? offers.reduce((sum, offer) => {
+        return sum + ((offer.participantes || 0) * (offer.precioDescuento || 0));
+      }, 0) : 0) + (Array.isArray(activities) ? activities.reduce((sum, activity) => {
+        return sum + ((activity.participantes || 0) * (activity.precioDescuento || 0));
+      }, 0) : 0);
 
-    return {
-      totalUsers,
-      newUsers,
-      totalOffers,
-      pendingOffers,
-      totalActivities,
-      pendingActivities,
-      totalRevenue: Math.round(totalRevenue)
-    };
+      return {
+        totalUsers,
+        newUsers,
+        totalOffers,
+        pendingOffers,
+        totalActivities,
+        pendingActivities,
+        totalRevenue: Math.round(totalRevenue)
+      };
+    } catch (error) {
+      console.error('Error en getLocalStorageStats:', error);
+      return {
+        totalUsers: 0,
+        newUsers: 0,
+        totalOffers: 0,
+        pendingOffers: 0,
+        totalActivities: 0,
+        pendingActivities: 0,
+        totalRevenue: 0
+      };
+    }
   },
 
   getLocalStorageUsers: () => {
     console.log('🔍 Buscando usuarios en localStorage...');
     
-    let users = JSON.parse(localStorage.getItem('ofertasApp_users') || '[]');
-    
-    // Si no hay usuarios, crear admin por defecto
-    if (users.length === 0) {
-      const defaultUsers = [
-        {
-          _id: 1,
-          nombre: "Admin Principal",
-          email: "admin@ejemplo.com",
-          telefono: "+1234567890",
-          rol: "administrador",
-          empresa: "Sistema",
-          verificada: true,
-          activo: true,
-          createdAt: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem('ofertasApp_users', JSON.stringify(defaultUsers));
-      users = defaultUsers;
+    try {
+      let users = JSON.parse(localStorage.getItem('ofertasApp_users') || '[]');
+      
+      // Si no hay usuarios, crear admin por defecto
+      if (users.length === 0) {
+        const defaultUsers = [
+          {
+            _id: 1,
+            nombre: "Admin Principal",
+            email: "admin@ejemplo.com",
+            telefono: "+1234567890",
+            rol: "administrador",
+            empresa: "Sistema",
+            verificada: true,
+            activo: true,
+            createdAt: new Date().toISOString()
+          }
+        ];
+        localStorage.setItem('ofertasApp_users', JSON.stringify(defaultUsers));
+        users = defaultUsers;
+      }
+      
+      console.log('👥 Usuarios encontrados en localStorage:', users);
+      return users;
+    } catch (error) {
+      console.error('Error obteniendo usuarios de localStorage:', error);
+      return [];
     }
-    
-    console.log('👥 Usuarios encontrados en localStorage:', users);
-    return users;
   },
 
   getLocalStorageOffers: () => {
-    const offers = JSON.parse(localStorage.getItem('ofertasApp_offers') || '[]');
-    if (offers.length === 0) {
-      const defaultOffers = [
-        { 
-          _id: 1, 
-          titulo: "Oferta de Verano", 
-          descripcion: "Descuentos especiales en productos de temporada", 
-          descuento: "20%",
-          categoria: "temporada",
-          empresa: "Empresa Ejemplo",
-          participantes: 0,
-          maxParticipantes: 100,
-          precioOriginal: 100,
-          precioDescuento: 80,
-          estado: "aprobada",
-          createdAt: new Date().toISOString(),
-          isActive: true
-        }
-      ];
-      localStorage.setItem('ofertasApp_offers', JSON.stringify(defaultOffers));
-      return defaultOffers;
+    try {
+      const offers = JSON.parse(localStorage.getItem('ofertasApp_offers') || '[]');
+      if (offers.length === 0) {
+        const defaultOffers = [
+          { 
+            _id: 1, 
+            titulo: "Oferta de Verano", 
+            descripcion: "Descuentos especiales en productos de temporada", 
+            descuento: "20%",
+            categoria: "temporada",
+            empresa: "Empresa Ejemplo",
+            participantes: 0,
+            maxParticipantes: 100,
+            precioOriginal: 100,
+            precioDescuento: 80,
+            estado: "aprobada",
+            createdAt: new Date().toISOString(),
+            isActive: true
+          }
+        ];
+        localStorage.setItem('ofertasApp_offers', JSON.stringify(defaultOffers));
+        return defaultOffers;
+      }
+      return offers;
+    } catch (error) {
+      console.error('Error obteniendo ofertas de localStorage:', error);
+      return [];
     }
-    return offers;
   },
 
   getLocalStorageActivities: () => {
-    const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
-    if (activities.length === 0) {
-      const defaultActivities = [
-        { 
-          _id: 1, 
-          titulo: "Taller de Cocina", 
-          descripcion: "Aprende a preparar platillos gourmet con chefs expertos", 
-          descuento: "25%",
-          categoria: "taller",
-          empresa: "Escuela de Cocina",
-          participantes: 0,
-          maxParticipantes: 20,
-          precioOriginal: 150,
-          precioDescuento: 112.5,
-          fecha: "2024-03-15",
-          estado: "aprobada",
-          createdAt: new Date().toISOString(),
-          isActive: true
-        }
-      ];
-      localStorage.setItem('ofertasApp_activities', JSON.stringify(defaultActivities));
-      return defaultActivities;
+    try {
+      const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
+      if (activities.length === 0) {
+        const defaultActivities = [
+          { 
+            _id: 1, 
+            titulo: "Taller de Cocina", 
+            descripcion: "Aprende a preparar platillos gourmet con chefs expertos", 
+            descuento: "25%",
+            categoria: "taller",
+            empresa: "Escuela de Cocina",
+            participantes: 0,
+            maxParticipantes: 20,
+            precioOriginal: 150,
+            precioDescuento: 112.5,
+            fecha: "2024-03-15",
+            estado: "aprobada",
+            createdAt: new Date().toISOString(),
+            isActive: true
+          }
+        ];
+        localStorage.setItem('ofertasApp_activities', JSON.stringify(defaultActivities));
+        return defaultActivities;
+      }
+      return activities;
+    } catch (error) {
+      console.error('Error obteniendo actividades de localStorage:', error);
+      return [];
     }
-    return activities;
   },
 
   // ==================== FUNCIONES PARA USUARIOS REGULARES ====================
@@ -503,13 +542,21 @@ export const dataService = {
   },
 
   getUserParticipations: (userId) => {
-    const offerParticipations = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_offers`) || '[]');
-    const activityParticipations = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_activities`) || '[]');
-    
-    return {
-      offers: offerParticipations,
-      activities: activityParticipations
-    };
+    try {
+      const offerParticipations = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_offers`) || '[]');
+      const activityParticipations = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_activities`) || '[]');
+      
+      return {
+        offers: offerParticipations,
+        activities: activityParticipations
+      };
+    } catch (error) {
+      console.error('Error obteniendo participaciones:', error);
+      return {
+        offers: [],
+        activities: []
+      };
+    }
   },
 
   addToFavorites: async (itemId, itemType) => {
@@ -603,119 +650,87 @@ export const dataService = {
   },
 
   isItemFavorite: (itemId, itemType) => {
-    const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
-    if (!userId) return false;
-    
-    const favorites = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_favorites`) || '[]');
-    return favorites.some(fav => fav.id == itemId && fav.type === itemType);
+    try {
+      const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+      if (!userId) return false;
+      
+      const favorites = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_favorites`) || '[]');
+      return favorites.some(fav => fav.id == itemId && fav.type === itemType);
+    } catch (error) {
+      console.error('Error verificando favoritos:', error);
+      return false;
+    }
   },
 
   createActivity: async (activityData) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/activities`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
-      body: JSON.stringify(activityData)
-    });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/activities`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(activityData)
+      });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error creating activity:', error);
-    // Fallback a localStorage
-    const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
-    const newActivity = {
-      ...activityData,
-      _id: Date.now().toString(),
-      id: Date.now(),
-      estado: 'pendiente',
-      participantes: 0,
-      createdAt: new Date().toISOString()
-    };
-    
-    activities.push(newActivity);
-    localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
-    return newActivity;
-  }
-},
-
-createOffer: async (offerData) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await fetch(`${API_URL}/offers`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
-      body: JSON.stringify(offerData)
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error creating offer:', error);
-    // Fallback a localStorage
-    const offers = JSON.parse(localStorage.getItem('ofertasApp_offers') || '[]');
-    const newOffer = {
-      ...offerData,
-      _id: Date.now().toString(),
-      id: Date.now(),
-      estado: 'pendiente',
-      participantes: 0,
-      createdAt: new Date().toISOString()
-    };
-    
-    offers.push(newOffer);
-    localStorage.setItem('ofertasApp_offers', JSON.stringify(offers));
-    return newOffer;
-  }
-},
-
-    createActivity: async (activityData) => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/activities`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token && { 'Authorization': `Bearer ${token}` })
-          },
-          body: JSON.stringify(activityData)
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return await response.json();
-      } catch (error) {
-        console.error('Error creating activity:', error);
-        // Fallback a localStorage
-        const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
-        const newActivity = {
-          ...activityData,
-          _id: Date.now().toString(),
-          id: Date.now(),
-          estado: 'pendiente',
-          participantes: 0,
-          createdAt: new Date().toISOString()
-        };
-        
-        activities.push(newActivity);
-        localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
-        return newActivity;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    }
 
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating activity:', error);
+      // Fallback a localStorage
+      const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
+      const newActivity = {
+        ...activityData,
+        _id: Date.now().toString(),
+        id: Date.now(),
+        estado: 'pendiente',
+        participantes: 0,
+        createdAt: new Date().toISOString()
+      };
+      
+      activities.push(newActivity);
+      localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
+      return newActivity;
+    }
+  },
+
+  createOffer: async (offerData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/offers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
+        body: JSON.stringify(offerData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating offer:', error);
+      // Fallback a localStorage
+      const offers = JSON.parse(localStorage.getItem('ofertasApp_offers') || '[]');
+      const newOffer = {
+        ...offerData,
+        _id: Date.now().toString(),
+        id: Date.now(),
+        estado: 'pendiente',
+        participantes: 0,
+        createdAt: new Date().toISOString()
+      };
+      
+      offers.push(newOffer);
+      localStorage.setItem('ofertasApp_offers', JSON.stringify(offers));
+      return newOffer;
+    }
+  }
 };

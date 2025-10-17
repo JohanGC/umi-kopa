@@ -52,6 +52,7 @@ app.post('/api/debug', (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/offers', require('./routes/offers'));
 app.use('/api/activities', require('./routes/activities'));
+app.use('/api/admin', require('./routes/admin')); // ✅ Si tienes rutas de admin
 
 // Health check
 app.get('/api/health', (req, res) => {

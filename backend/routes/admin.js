@@ -93,20 +93,66 @@ router.get('/offers', async (req, res) => {
   }
 });
 
-// Obtener todas las actividades
-router.get('/activities', async (req, res) => {
+// Obtener todas las actividades (para admin)
+router.get('/activities', auth, async (req, res) => {
   try {
-    console.log('🎯 Obteniendo todas las actividades...');
-    
+    if (req.user.rol !== 'administrador') {
+      return res.status(403).json({ message: 'Se requieren privilegios de administrador' });
+    }
+
     const activities = await Activity.find()
-      .populate('creador', 'nombre email')
-      .sort({ fecha: 1 });
+      .populate('creador', 'nombre empresa')
+      .sort({ createdAt: -1 });
     
-    console.log(`✅ ${activities.length} actividades obtenidas`);
     res.json(activities);
   } catch (error) {
-    console.error('❌ Error obteniendo actividades:', error);
-    res.status(500).json({ message: 'Error obteniendo actividades' });
+    console.error('Error al obtener actividades:', error);
+    res.status(500).json({ message: 'Error al obtener actividades' });
+  }
+});
+
+// Obtener todas las ofertas (para admin)
+router.get('/offers', auth, async (req, res) => {
+  try {
+    if (req.user.rol !== 'administrador') {
+      return res.status(403).json({ message: 'Se requieren privilegios de administrador' });
+    }
+
+    const offers = await Offer.find()
+      .populate('creador', 'nombre empresa')
+      .sort({ createdAt: -1 });
+    
+    res.json(offers);
+  } catch (error) {
+    console.error('Error al obtener ofertas:', error);
+    res.status(500).json({ message: 'Error al obtener ofertas' });
+  }
+});
+
+// Obtener estadísticas del admin
+router.get('/stats', auth, async (req, res) => {
+  try {
+    if (req.user.rol !== 'administrador') {
+      return res.status(403).json({ message: 'Se requieren privilegios de administrador' });
+    }
+
+    const totalUsers = await User.countDocuments();
+    const totalOffers = await Offer.countDocuments({ estado: 'aprobada' });
+    const totalActivities = await Activity.countDocuments({ estado: 'aprobada' });
+    const pendingOffers = await Offer.countDocuments({ estado: 'pendiente' });
+    const pendingActivities = await Activity.countDocuments({ estado: 'pendiente' });
+
+    res.json({
+      totalUsers,
+      totalOffers,
+      totalActivities,
+      pendingOffers,
+      pendingActivities,
+      totalRevenue: 0 // Puedes calcular esto según tu lógica de negocio
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({ message: 'Error al obtener estadísticas' });
   }
 });
 

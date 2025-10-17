@@ -75,6 +75,31 @@ router.post('/', auth, requireOferenteOrAdmin, async (req, res) => {
   }
 });
 
+  router.get('/pending', auth, async (req, res) => { // ✅ QUITAR requireOferenteOrAdmin
+    try {
+      console.log('🔐 Verificando permisos para usuario:', req.user.email);
+      
+      // ✅ CORREGIDO: Verificar si es admin de manera más simple
+      if (req.user.rol !== 'administrador') {
+        return res.status(403).json({ message: 'Se requieren privilegios de administrador' });
+      }
+
+      console.log('📋 Buscando ofertas pendientes...');
+      const offers = await Offer.find({ estado: 'pendiente' })
+        .populate('creador', 'nombre empresa email')
+        .sort({ createdAt: -1 });
+      
+      console.log('✅ Ofertas pendientes encontradas:', offers.length);
+      res.json(offers);
+    } catch (error) {
+      console.error('❌ Error al obtener ofertas pendientes:', error);
+      res.status(500).json({ 
+        message: 'Error al obtener ofertas pendientes',
+        error: error.message 
+      });
+    }
+  });
+
 // Aprobar/rechazar oferta (solo admin)
 router.patch('/:id/approve', auth, async (req, res) => {
   try {

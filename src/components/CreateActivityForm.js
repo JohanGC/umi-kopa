@@ -119,28 +119,34 @@ const CreateActivityForm = () => {
   // Función para crear actividad (conectar con tu API)
   const createActivity = async (activityData) => {
     try {
-      // Opción 1: Usar API del backend
       const token = localStorage.getItem('token');
-      if (token) {
-        const response = await fetch('http://localhost:5000/api/activities', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(activityData)
-        });
+      console.log('🔐 Token disponible:', !!token);
+      console.log('📤 Enviando actividad a API:', activityData);
+      
+      const response = await fetch('http://localhost:5000/api/activities', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(activityData)
+      });
 
-        if (response.ok) {
-          return true;
-        }
+      console.log('📥 Respuesta de API:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Actividad creada en MongoDB:', result);
+        return true;
+      } else {
+        const errorData = await response.json();
+        console.error('❌ Error de API:', errorData);
+        throw new Error(errorData.message || 'Error al crear actividad');
       }
-
-      // Opción 2: Fallback a localStorage
-      return createActivityInLocalStorage(activityData);
       
     } catch (error) {
-      console.error('Error con API, usando localStorage:', error);
+      console.error('❌ Error con API, usando localStorage:', error);
+      // Fallback a localStorage
       return createActivityInLocalStorage(activityData);
     }
   };
