@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // ✅ AGREGAR ESTA LÍNEA
 import { dataService } from '../services/dataService';
 import { authService } from '../services/auth';
 import SearchFilter from '../components/SearchFilter';
@@ -16,6 +17,7 @@ const Offers = () => {
   const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
   const { addNotification } = useNotification();
+  const navigate = useNavigate(); // ✅ AGREGAR ESTE HOOK
   
   const categories = [
     { value: 'temporada', label: 'Temporada' },
@@ -144,13 +146,25 @@ const Offers = () => {
 
   return (
     <div className="container mt-5">
-      <h2 className="mb-4">Ofertas Disponibles</h2>
+      
+      <div className="d-flex justify-content-between align-items-center mb-4">
+      <h2>Ofertas Disponibles</h2>
+      {currentUser && (
+        <button 
+          className="btn btn-warning"
+          onClick={() => navigate('/create-offer')}
+        >
+          + Crear Oferta
+        </button>
+      )}
+      </div>
       
       <SearchFilter 
         onSearch={handleSearch}
         onFilter={handleFilter}
         categories={categories}
       />
+
 
       {!currentUser && (
         <div className="alert alert-info">

@@ -1,24 +1,36 @@
 import React, { useState } from 'react';
-import { useNotification } from '../context/NotificationContext';
 import { useNavigate } from 'react-router-dom';
+import { useNotification } from '../context/NotificationContext';
+import { authService } from '../services/auth';
 
-const CreateActivityForm = ({ onClose, onSuccess }) => {
+const CreateActivityForm = () => {
   const [formData, setFormData] = useState({
     titulo: '',
     descripcion: '',
-    descuento: '',
-    categoria: 'taller',
+    categoria: '',
     precioOriginal: '',
+    descuento: '',
     maxParticipantes: '',
     fecha: '',
     hora: '',
     duracion: '',
     ubicacion: '',
-    requisitos: ['']
+    requisitos: '',
+    imagen: ''
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { addNotification } = useNotification();
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+  const { addNotification } = useNotification();
+
+  const categories = [
+    { value: 'taller', label: 'Taller' },
+    { value: 'tour', label: 'Tour' },
+    { value: 'clase', label: 'Clase' },
+    { value: 'evento', label: 'Evento Especial' },
+    { value: 'conferencia', label: 'Conferencia' },
+    { value: 'workshop', label: 'Workshop' }
+  ];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,214 +38,261 @@ const CreateActivityForm = ({ onClose, onSuccess }) => {
       ...prev,
       [name]: value
     }));
+    
+    // Limpiar error del campo
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
-  const handleRequisitoChange = (index, value) => {
-    const nuevosRequisitos = [...formData.requisitos];
-    nuevosRequisitos[index] = value;
-    setFormData(prev => ({
-      ...prev,
-      requisitos: nuevosRequisitos
-    }));
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.titulo.trim()) newErrors.titulo = 'El título es requerido';
+    if (!formData.descripcion.trim()) newErrors.descripcion = 'La descripción es requerida';
+    if (!formData.categoria) newErrors.categoria = 'La categoría es requerida';
+    if (!formData.precioOriginal || formData.precioOriginal < 0) newErrors.precioOriginal = 'Precio válido requerido';
+    if (!formData.descuento || formData.descuento < 0 || formData.descuento > 100) newErrors.descuento = 'Descuento debe ser entre 0-100%';
+    if (!formData.maxParticipantes || formData.maxParticipantes < 1) newErrors.maxParticipantes = 'Número de participantes válido requerido';
+    if (!formData.fecha) newErrors.fecha = 'La fecha es requerida';
+    if (!formData.ubicacion.trim()) newErrors.ubicacion = 'La ubicación es requerida';
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const addRequisito = () => {
-    setFormData(prev => ({
-      ...prev,
-      requisitos: [...prev.requisitos, '']
-    }));
-  };
-
-  const removeRequisito = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      requisitos: prev.requisitos.filter((_, i) => i !== index)
-    }));
+  const calculateDiscountedPrice = () => {
+    const precioOriginal = parseFloat(formData.precioOriginal) || 0;
+    const descuento = parseFloat(formData.descuento) || 0;
+    return precioOriginal * (1 - descuento / 100);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    
+    if (!validateForm()) {
+      addNotification('Por favor corrige los errores del formulario', 'error');
+      return;
+    }
+
+    const currentUser = authService.getCurrentUser();
+    if (!currentUser) {
+      addNotification('Debes iniciar sesión para crear actividades', 'error');
+      navigate('/login');
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      // Validaciones
-      if (parseInt(formData.descuento) <= 0 || parseInt(formData.descuento) >= 100) {
-        addNotification('El descuento debe estar entre 1% y 99%', 'error');
-        return;
-      }
+      const activityData = {
+        ...formData,
+        precioDescuento: calculateDiscountedPrice(),
+        empresa: currentUser.empresa || currentUser.nombre,
+        creador: currentUser.email,
+        estado: 'pendiente', // Las nuevas actividades requieren aprobación
+        participantes: 0,
+        isActive: true,
+        createdAt: new Date().toISOString()
+      };
 
-      if (new Date(formData.fecha) < new Date().setHours(0, 0, 0, 0)) {
-        addNotification('La fecha debe ser hoy o en el futuro', 'error');
-        return;
+      // Aquí llamarías a tu API para crear la actividad
+      const success = await createActivity(activityData);
+      
+      if (success) {
+        addNotification('Actividad creada exitosamente. Está pendiente de aprobación.', 'success');
+        navigate('/activities');
+      } else {
+        addNotification('Error al crear la actividad', 'error');
       }
-
-      // Simular envío a la API
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      addNotification('✅ Actividad creada exitosamente. Esperando aprobación.', 'success');
-      
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
-      
-      navigate('/my-activities');
-      
     } catch (error) {
-      addNotification('❌ Error al crear la actividad', 'error');
+      console.error('Error creando actividad:', error);
+      addNotification('Error al crear la actividad', 'error');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
 
-  const calculateFinalPrice = () => {
-    const precio = parseFloat(formData.precioOriginal) || 0;
-    const descuento = parseFloat(formData.descuento) || 0;
-    return precio * (1 - descuento / 100);
+  // Función para crear actividad (conectar con tu API)
+  const createActivity = async (activityData) => {
+    try {
+      // Opción 1: Usar API del backend
+      const token = localStorage.getItem('token');
+      if (token) {
+        const response = await fetch('http://localhost:5000/api/activities', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(activityData)
+        });
+
+        if (response.ok) {
+          return true;
+        }
+      }
+
+      // Opción 2: Fallback a localStorage
+      return createActivityInLocalStorage(activityData);
+      
+    } catch (error) {
+      console.error('Error con API, usando localStorage:', error);
+      return createActivityInLocalStorage(activityData);
+    }
+  };
+
+  const createActivityInLocalStorage = (activityData) => {
+    try {
+      const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
+      const newActivity = {
+        ...activityData,
+        _id: Date.now().toString(),
+        id: Date.now()
+      };
+      
+      activities.push(newActivity);
+      localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
+      return true;
+    } catch (error) {
+      console.error('Error guardando en localStorage:', error);
+      return false;
+    }
+  };
+
+  const handleCancel = () => {
+    navigate('/activities');
   };
 
   return (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <div className="modal-dialog modal-lg">
-        <div className="modal-content">
-          <div className="modal-header bg-success text-white">
-            <h5 className="modal-title">🎯 Crear Nueva Actividad</h5>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
-          </div>
-          
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body">
-              <div className="row">
-                <div className="col-md-6">
-                  <div className="mb-3">
+    <div className="container mt-4">
+      <div className="row justify-content-center">
+        <div className="col-md-8">
+          <div className="card shadow">
+            <div className="card-header bg-primary text-white">
+              <h3 className="card-title mb-0">Crear Nueva Actividad</h3>
+            </div>
+            <div className="card-body">
+              <form onSubmit={handleSubmit}>
+                <div className="row">
+                  {/* Título */}
+                  <div className="col-md-12 mb-3">
                     <label htmlFor="titulo" className="form-label">Título de la Actividad *</label>
                     <input
                       type="text"
-                      className="form-control"
+                      className={`form-control ${errors.titulo ? 'is-invalid' : ''}`}
                       id="titulo"
                       name="titulo"
                       value={formData.titulo}
                       onChange={handleChange}
                       placeholder="Ej: Taller de Cocina Italiana"
-                      required
                     />
+                    {errors.titulo && <div className="invalid-feedback">{errors.titulo}</div>}
                   </div>
-                </div>
-                
-                <div className="col-md-6">
-                  <div className="mb-3">
+
+                  {/* Descripción */}
+                  <div className="col-md-12 mb-3">
+                    <label htmlFor="descripcion" className="form-label">Descripción *</label>
+                    <textarea
+                      className={`form-control ${errors.descripcion ? 'is-invalid' : ''}`}
+                      id="descripcion"
+                      name="descripcion"
+                      rows="3"
+                      value={formData.descripcion}
+                      onChange={handleChange}
+                      placeholder="Describe detalladamente la actividad..."
+                    />
+                    {errors.descripcion && <div className="invalid-feedback">{errors.descripcion}</div>}
+                  </div>
+
+                  {/* Categoría y Precio */}
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="categoria" className="form-label">Categoría *</label>
                     <select
-                      className="form-select"
+                      className={`form-select ${errors.categoria ? 'is-invalid' : ''}`}
                       id="categoria"
                       name="categoria"
                       value={formData.categoria}
                       onChange={handleChange}
-                      required
                     >
-                      <option value="taller">Taller</option>
-                      <option value="tour">Tour</option>
-                      <option value="clase">Clase</option>
-                      <option value="evento">Evento</option>
-                      <option value="conferencia">Conferencia</option>
+                      <option value="">Selecciona una categoría</option>
+                      {categories.map(cat => (
+                        <option key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </option>
+                      ))}
                     </select>
+                    {errors.categoria && <div className="invalid-feedback">{errors.categoria}</div>}
                   </div>
-                </div>
-              </div>
 
-              <div className="mb-3">
-                <label htmlFor="descripcion" className="form-label">Descripción *</label>
-                <textarea
-                  className="form-control"
-                  id="descripcion"
-                  name="descripcion"
-                  rows="3"
-                  value={formData.descripcion}
-                  onChange={handleChange}
-                  placeholder="Describe detalladamente tu actividad..."
-                  required
-                ></textarea>
-              </div>
-
-              <div className="row">
-                <div className="col-md-4">
-                  <div className="mb-3">
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="precioOriginal" className="form-label">Precio Original ($) *</label>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${errors.precioOriginal ? 'is-invalid' : ''}`}
                       id="precioOriginal"
                       name="precioOriginal"
                       value={formData.precioOriginal}
                       onChange={handleChange}
-                      min="1"
+                      min="0"
                       step="0.01"
-                      required
+                      placeholder="0.00"
                     />
+                    {errors.precioOriginal && <div className="invalid-feedback">{errors.precioOriginal}</div>}
                   </div>
-                </div>
-                
-                <div className="col-md-4">
-                  <div className="mb-3">
+
+                  {/* Descuento y Participantes */}
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="descuento" className="form-label">Descuento (%) *</label>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${errors.descuento ? 'is-invalid' : ''}`}
                       id="descuento"
                       name="descuento"
                       value={formData.descuento}
                       onChange={handleChange}
-                      min="1"
-                      max="99"
-                      required
+                      min="0"
+                      max="100"
+                      placeholder="0"
                     />
+                    {errors.descuento && <div className="invalid-feedback">{errors.descuento}</div>}
                   </div>
-                </div>
-                
-                <div className="col-md-4">
-                  <div className="mb-3">
-                    <label className="form-label">Precio Final</label>
-                    <div className="form-control bg-light">
-                      <strong className="text-success">${calculateFinalPrice().toFixed(2)}</strong>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="row">
-                <div className="col-md-4">
-                  <div className="mb-3">
-                    <label htmlFor="maxParticipantes" className="form-label">Máximo Participantes *</label>
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="maxParticipantes" className="form-label">Máximo de Participantes *</label>
                     <input
                       type="number"
-                      className="form-control"
+                      className={`form-control ${errors.maxParticipantes ? 'is-invalid' : ''}`}
                       id="maxParticipantes"
                       name="maxParticipantes"
                       value={formData.maxParticipantes}
                       onChange={handleChange}
                       min="1"
-                      required
+                      placeholder="10"
                     />
+                    {errors.maxParticipantes && <div className="invalid-feedback">{errors.maxParticipantes}</div>}
                   </div>
-                </div>
-                
-                <div className="col-md-4">
-                  <div className="mb-3">
+
+                  {/* Fecha y Hora */}
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="fecha" className="form-label">Fecha *</label>
                     <input
                       type="date"
-                      className="form-control"
+                      className={`form-control ${errors.fecha ? 'is-invalid' : ''}`}
                       id="fecha"
                       name="fecha"
                       value={formData.fecha}
                       onChange={handleChange}
                       min={new Date().toISOString().split('T')[0]}
-                      required
                     />
+                    {errors.fecha && <div className="invalid-feedback">{errors.fecha}</div>}
                   </div>
-                </div>
-                
-                <div className="col-md-4">
-                  <div className="mb-3">
-                    <label htmlFor="hora" className="form-label">Hora *</label>
+
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="hora" className="form-label">Hora</label>
                     <input
                       type="time"
                       className="form-control"
@@ -241,98 +300,111 @@ const CreateActivityForm = ({ onClose, onSuccess }) => {
                       name="hora"
                       value={formData.hora}
                       onChange={handleChange}
-                      required
                     />
                   </div>
-                </div>
-              </div>
 
-              <div className="row">
-                <div className="col-md-6">
-                  <div className="mb-3">
-                    <label htmlFor="duracion" className="form-label">Duración *</label>
+                  {/* Duración y Ubicación */}
+                  <div className="col-md-6 mb-3">
+                    <label htmlFor="duracion" className="form-label">Duración (horas)</label>
                     <input
-                      type="text"
+                      type="number"
                       className="form-control"
                       id="duracion"
                       name="duracion"
                       value={formData.duracion}
                       onChange={handleChange}
-                      placeholder="Ej: 2 horas, 1 día, etc."
-                      required
+                      min="0.5"
+                      step="0.5"
+                      placeholder="2.0"
                     />
                   </div>
-                </div>
-                
-                <div className="col-md-6">
-                  <div className="mb-3">
+
+                  <div className="col-md-6 mb-3">
                     <label htmlFor="ubicacion" className="form-label">Ubicación *</label>
                     <input
                       type="text"
-                      className="form-control"
+                      className={`form-control ${errors.ubicacion ? 'is-invalid' : ''}`}
                       id="ubicacion"
                       name="ubicacion"
                       value={formData.ubicacion}
                       onChange={handleChange}
-                      placeholder="Dirección o lugar de la actividad"
-                      required
+                      placeholder="Dirección o lugar específico"
+                    />
+                    {errors.ubicacion && <div className="invalid-feedback">{errors.ubicacion}</div>}
+                  </div>
+
+                  {/* Requisitos e Imagen */}
+                  <div className="col-md-12 mb-3">
+                    <label htmlFor="requisitos" className="form-label">Requisitos o Materiales Necesarios</label>
+                    <textarea
+                      className="form-control"
+                      id="requisitos"
+                      name="requisitos"
+                      rows="2"
+                      value={formData.requisitos}
+                      onChange={handleChange}
+                      placeholder="Ej: Traer laptop, conocimientos básicos..."
+                    />
+                  </div>
+
+                  <div className="col-md-12 mb-3">
+                    <label htmlFor="imagen" className="form-label">URL de Imagen (opcional)</label>
+                    <input
+                      type="url"
+                      className="form-control"
+                      id="imagen"
+                      name="imagen"
+                      value={formData.imagen}
+                      onChange={handleChange}
+                      placeholder="https://ejemplo.com/imagen.jpg"
                     />
                   </div>
                 </div>
-              </div>
 
-              <div className="mb-3">
-                <label className="form-label">Requisitos para Participar</label>
-                {formData.requisitos.map((requisito, index) => (
-                  <div key={index} className="input-group mb-2">
-                    <input
-                      type="text"
-                      className="form-control"
-                      value={requisito}
-                      onChange={(e) => handleRequisitoChange(index, e.target.value)}
-                      placeholder={`Requisito ${index + 1}`}
-                    />
-                    {formData.requisitos.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn btn-outline-danger"
-                        onClick={() => removeRequisito(index)}
-                      >
-                        ×
-                      </button>
-                    )}
+                {/* Resumen de Precio */}
+                {formData.precioOriginal && formData.descuento && (
+                  <div className="alert alert-info">
+                    <strong>Resumen de Precios:</strong><br />
+                    Precio Original: ${parseFloat(formData.precioOriginal).toFixed(2)}<br />
+                    Descuento: {formData.descuento}%<br />
+                    <strong>Precio con Descuento: ${calculateDiscountedPrice().toFixed(2)}</strong>
                   </div>
-                ))}
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-sm"
-                  onClick={addRequisito}
-                >
-                  + Agregar Requisito
-                </button>
-              </div>
-            </div>
-            
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                className="btn btn-success"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                    Creando...
-                  </>
-                ) : (
-                  '🎯 Crear Actividad'
                 )}
-              </button>
+
+                {/* Botones */}
+                <div className="d-flex gap-2 justify-content-end">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleCancel}
+                    disabled={loading}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        Creando...
+                      </>
+                    ) : (
+                      'Crear Actividad'
+                    )}
+                  </button>
+                </div>
+
+                <div className="mt-3">
+                  <small className="text-muted">
+                    * Campos obligatorios. Las actividades creadas requieren aprobación del administrador.
+                  </small>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

@@ -17,6 +17,8 @@ import NotificationToast from './components/NotificationToast';
 import { CartProvider } from './context/CartContext';
 import Cart from './pages/Carts';
 import AdminPanel from './pages/AdminPanel';
+import CreateActivityForm from './components/CreateActivityForm';
+import CreateOfferForm from './components/CreateOfferForm';
 
 function AppWrapper() {
   return (
@@ -194,7 +196,22 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            
+            <Route 
+              path="/create-activity" 
+              element={
+                <ProtectedRoute>
+                  <CreateActivityForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/create-offer" 
+              element={
+                <ProtectedRoute>
+                  <CreateOfferForm />
+                </ProtectedRoute>
+              } 
+            />
             {/* Ruta por defecto para páginas no encontradas */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>

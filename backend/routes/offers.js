@@ -1,6 +1,6 @@
 const express = require('express');
 const Offer = require('../models/Offer');
-const User = require('../models/User'); // ✅ IMPORTANTE: Agregar esta línea
+const User = require('../models/User');
 const { auth, requireOferenteOrAdmin } = require('../middleware/auth');
 const router = express.Router();
 
@@ -52,15 +52,18 @@ router.post('/', auth, requireOferenteOrAdmin, async (req, res) => {
     const offerData = {
       ...req.body,
       creador: req.user._id,
-      empresa: req.user.empresa || req.user.nombre
+      empresa: req.user.empresa || req.user.nombre,
+      estado: 'pendiente', // ✅ CORREGIDO: Agregar estado por defecto
+      activa: true, // ✅ CORREGIDO: Agregar activa por defecto
+      participantes: 0 // ✅ CORREGIDO: Inicializar participantes
     };
 
     const offer = new Offer(offerData);
     await offer.save();
 
-    // Agregar oferta al array del usuario
+    // ✅ CORREGIDO: Verificar que el campo ofertasCreadas existe antes de agregar
     await User.findByIdAndUpdate(req.user._id, {
-      $push: { ofertasCreadas: offer._id }
+      $addToSet: { ofertasCreadas: offer._id }
     });
 
     res.status(201).json({
@@ -80,9 +83,19 @@ router.patch('/:id/approve', auth, async (req, res) => {
     }
 
     const { estado, motivoRechazo } = req.body;
+    
+    // ✅ CORREGIDO: Validar estado permitido
+    if (!['aprobada', 'rechazada'].includes(estado)) {
+      return res.status(400).json({ message: 'Estado no válido' });
+    }
+
     const offer = await Offer.findByIdAndUpdate(
       req.params.id,
-      { estado, motivoRechazo: estado === 'rechazada' ? motivoRechazo : null },
+      { 
+        estado, 
+        motivoRechazo: estado === 'rechazada' ? motivoRechazo : null,
+        ...(estado === 'aprobada' && { activa: true }) // ✅ Activar si es aprobada
+      },
       { new: true }
     ).populate('creador', 'nombre email');
 
@@ -109,9 +122,11 @@ router.post('/:id/participate', auth, async (req, res) => {
       return res.status(400).json({ message: 'Oferta llena' });
     }
 
-    // Verificar si el usuario ya participa
+    // ✅ CORREGIDO: Verificar si el usuario ya participa de manera segura
     const user = await User.findById(req.user._id);
-    if (user.participaciones.ofertas.includes(offer._id)) {
+    const userParticipaciones = user.participaciones?.ofertas || [];
+    
+    if (userParticipaciones.includes(offer._id.toString())) {
       return res.status(400).json({ message: 'Ya estás participando en esta oferta' });
     }
 
@@ -119,9 +134,12 @@ router.post('/:id/participate', auth, async (req, res) => {
     offer.participantes += 1;
     await offer.save();
 
-    // Agregar participación al usuario
-    user.participaciones.ofertas.push(offer._id);
-    await user.save();
+    // ✅ CORREGIDO: Agregar participación al usuario de manera segura
+    await User.findByIdAndUpdate(req.user._id, {
+      $addToSet: { 
+        'participaciones.ofertas': offer._id 
+      }
+    });
 
     res.json({ message: 'Te has unido a la oferta exitosamente', offer });
   } catch (error) {

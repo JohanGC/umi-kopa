@@ -1,6 +1,6 @@
 const express = require('express');
 const Activity = require('../models/Activity');
-const User = require('../models/User'); // ✅ AGREGAR ESTA LÍNEA
+const User = require('../models/User');
 const { auth, requireOferenteOrAdmin } = require('../middleware/auth');
 const router = express.Router();
 
@@ -52,15 +52,18 @@ router.post('/', auth, requireOferenteOrAdmin, async (req, res) => {
     const activityData = {
       ...req.body,
       creador: req.user._id,
-      empresa: req.user.empresa || req.user.nombre
+      empresa: req.user.empresa || req.user.nombre,
+      estado: 'pendiente', // ✅ CORREGIDO: Agregar estado por defecto
+      activa: true, // ✅ CORREGIDO: Agregar activa por defecto
+      participantes: 0 // ✅ CORREGIDO: Inicializar participantes
     };
 
     const activity = new Activity(activityData);
     await activity.save();
 
-    // Agregar actividad al array del usuario
+    // ✅ CORREGIDO: Verificar que el campo actividadesCreadas existe antes de agregar
     await User.findByIdAndUpdate(req.user._id, {
-      $push: { actividadesCreadas: activity._id }
+      $addToSet: { actividadesCreadas: activity._id }
     });
 
     res.status(201).json({
@@ -80,9 +83,19 @@ router.patch('/:id/approve', auth, async (req, res) => {
     }
 
     const { estado, motivoRechazo } = req.body;
+    
+    // ✅ CORREGIDO: Validar estado permitido
+    if (!['aprobada', 'rechazada'].includes(estado)) {
+      return res.status(400).json({ message: 'Estado no válido' });
+    }
+
     const activity = await Activity.findByIdAndUpdate(
       req.params.id,
-      { estado, motivoRechazo: estado === 'rechazada' ? motivoRechazo : null },
+      { 
+        estado, 
+        motivoRechazo: estado === 'rechazada' ? motivoRechazo : null,
+        ...(estado === 'aprobada' && { activa: true }) // ✅ Activar si es aprobada
+      },
       { new: true }
     ).populate('creador', 'nombre email');
 
@@ -109,9 +122,11 @@ router.post('/:id/participate', auth, async (req, res) => {
       return res.status(400).json({ message: 'Actividad llena' });
     }
 
-    // Verificar si el usuario ya participa
+    // ✅ CORREGIDO: Verificar si el usuario ya participa de manera segura
     const user = await User.findById(req.user._id);
-    if (user.participaciones.actividades.includes(activity._id)) {
+    const userParticipaciones = user.participaciones?.actividades || [];
+    
+    if (userParticipaciones.includes(activity._id.toString())) {
       return res.status(400).json({ message: 'Ya estás registrado en esta actividad' });
     }
 
@@ -119,9 +134,12 @@ router.post('/:id/participate', auth, async (req, res) => {
     activity.participantes += 1;
     await activity.save();
 
-    // Agregar participación al usuario
-    user.participaciones.actividades.push(activity._id);
-    await user.save();
+    // ✅ CORREGIDO: Agregar participación al usuario de manera segura
+    await User.findByIdAndUpdate(req.user._id, {
+      $addToSet: { 
+        'participaciones.actividades': activity._id 
+      }
+    });
 
     res.json({ message: 'Te has registrado en la actividad exitosamente', activity });
   } catch (error) {

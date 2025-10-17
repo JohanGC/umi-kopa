@@ -608,5 +608,114 @@ export const dataService = {
     
     const favorites = JSON.parse(localStorage.getItem(`ofertasApp_user_${userId}_favorites`) || '[]');
     return favorites.some(fav => fav.id == itemId && fav.type === itemType);
+  },
+
+  createActivity: async (activityData) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/activities`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify(activityData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating activity:', error);
+    // Fallback a localStorage
+    const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
+    const newActivity = {
+      ...activityData,
+      _id: Date.now().toString(),
+      id: Date.now(),
+      estado: 'pendiente',
+      participantes: 0,
+      createdAt: new Date().toISOString()
+    };
+    
+    activities.push(newActivity);
+    localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
+    return newActivity;
   }
+},
+
+createOffer: async (offerData) => {
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/offers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` })
+      },
+      body: JSON.stringify(offerData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating offer:', error);
+    // Fallback a localStorage
+    const offers = JSON.parse(localStorage.getItem('ofertasApp_offers') || '[]');
+    const newOffer = {
+      ...offerData,
+      _id: Date.now().toString(),
+      id: Date.now(),
+      estado: 'pendiente',
+      participantes: 0,
+      createdAt: new Date().toISOString()
+    };
+    
+    offers.push(newOffer);
+    localStorage.setItem('ofertasApp_offers', JSON.stringify(offers));
+    return newOffer;
+  }
+},
+
+    createActivity: async (activityData) => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/activities`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` })
+          },
+          body: JSON.stringify(activityData)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Error creating activity:', error);
+        // Fallback a localStorage
+        const activities = JSON.parse(localStorage.getItem('ofertasApp_activities') || '[]');
+        const newActivity = {
+          ...activityData,
+          _id: Date.now().toString(),
+          id: Date.now(),
+          estado: 'pendiente',
+          participantes: 0,
+          createdAt: new Date().toISOString()
+        };
+        
+        activities.push(newActivity);
+        localStorage.setItem('ofertasApp_activities', JSON.stringify(activities));
+        return newActivity;
+      }
+    }
+
 };
