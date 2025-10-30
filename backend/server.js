@@ -48,6 +48,9 @@ app.post('/api/debug', (req, res) => {
   });
 });
 
+const orderRoutes = require('./routes/orders');
+app.use('/api/orders', orderRoutes);
+
 // Rutas
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/offers', require('./routes/offers'));

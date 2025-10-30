@@ -15,14 +15,14 @@ const Header = ({ currentUser, onLogout }) => {
       <div className="container">
         <nav className="d-flex justify-content-between align-items-center">
           <Link to="/">
-            <img className="logo" src='logoKopa_W.svg'></img>
+            <img className="logo" src='logoKopa_W.svg' alt="Kopa Logo"></img>
           </Link>
           
           <div className="d-flex align-items-center">
             <Link to="/" className="text-white mx-2 text-decoration-none">Inicio</Link>
             <Link to="/offers" className="text-white mx-2 text-decoration-none">Ofertas</Link>
             <Link to="/activities" className="text-white mx-2 text-decoration-none">Actividades</Link>
-            
+             <Link to="/orders" className="text-white mx-2 text-decoration-none"> 🛵 Mandados </Link>
             {/* Icono del carrito */}
             <button 
               className="btn btn-header position-relative ms-3"
@@ -58,6 +58,7 @@ const Header = ({ currentUser, onLogout }) => {
                   
                   {currentUser && (currentUser.rol === 'oferente' || currentUser.rol === 'administrador') && (
                     <>
+
                       <li><Link to="/my-offers" className="dropdown-item">🏷️ Mis Ofertas</Link></li>
                       <li><Link to="/my-activities" className="dropdown-item">🎯 Mis Actividades</Link></li>
                       <li><hr className="dropdown-divider"/></li>

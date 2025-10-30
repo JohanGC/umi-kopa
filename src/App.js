@@ -20,6 +20,9 @@ import AdminPanel from './pages/AdminPanel';
 import CreateActivityForm from './components/CreateActivityForm';
 import CreateOfferForm from './components/CreateOfferForm';
 
+import CreateOrderForm from './components/CreateOrderForm';
+import OrdersList from './components/OrdersList';
+
 function AppWrapper() {
   return (
     <NotificationProvider>
@@ -161,6 +164,10 @@ function App() {
               } 
             />
             
+            {/* Rutas de mandados*/}
+            <Route path="/create-order" element={<CreateOrderForm />} />
+            <Route path="/orders" element={<OrdersList />} />
+
             {/* Rutas protegidas */}
             <Route 
               path="/profile" 
